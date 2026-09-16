@@ -1,6 +1,5 @@
 import untitled
 import QtQuick
-import QtQuick.Controls
 
 Item 
 {
@@ -10,13 +9,14 @@ Item
     property int fontSize: 14
     property bool showBorder: true
     property bool pressed: false
+    readonly property bool hovered: mouse_area.containsMouse
 
     signal clicked()
 
     implicitWidth: label.implicitWidth + 24
     implicitHeight: 32
     height: implicitHeight
-    width: implicitWidth
+    width: implicitWidth      
 
     Rectangle 
     {
@@ -43,14 +43,19 @@ Item
 
     MouseArea 
     {
+        id: mouse_area
+
         anchors.fill: parent
         hoverEnabled: true
+
         onPressed: button.pressed = true
+
         onReleased: 
         { 
             button.pressed = false
             button.clicked() 
         }
+
         onCanceled: button.pressed = false
     }
 }

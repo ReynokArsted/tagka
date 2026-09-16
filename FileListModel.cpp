@@ -48,19 +48,8 @@ QString FileListModel::normalizeDirPath(const QString& s)
     return t;
 }
 
-QSet<QString> get_tag_set (QString tg)
+QSet<QString> get_tag_set(QString tg)
 {
-    // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    // db.setDatabaseName("test.db");
-
-    // if (!db.open()) 
-    // {
-    //     qWarning() << "DB open failed:" << db.lastError().text();
-    //     return QSet<QString>();
-    // }
-
-    // QSqlQuery query(db);
-
     QSqlDatabase db = QSqlDatabase::database("app_connection");
     if (!db.isOpen()) 
     {
@@ -318,7 +307,6 @@ void FileListModel::showCandidates(const QVariantList &candidates)
         m_items.push_back(std::move(query_file));
     }
     endResetModel();
-    //emit folderChanged();
 }
 
 void FileListModel::setFolder(const QString &folderPath) 
@@ -786,16 +774,6 @@ void FileListModel::setFolder(const QString &folderPath)
 
         if (results.isEmpty())
         {
-            // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-            // db.setDatabaseName("test.db");
-
-            // if (!db.open()) 
-            // {
-            //     qWarning() << "DB open failed:" << db.lastError().text();
-            //     return;
-            // }
-
-            // QSqlQuery query(db);
             QSqlDatabase db = QSqlDatabase::database("app_connection");
             if (!db.isOpen()) 
             {

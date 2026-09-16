@@ -7,13 +7,6 @@
 
 ThingModel::ThingModel(QObject* parent) : QObject(parent)
 {    
-    // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    // db.setDatabaseName("test.db");
-
-    // if (!db.open()) {
-    //     qWarning() << "DB open failed: " << db.lastError().text();
-    //     return;
-    // }
     QSqlDatabase db = QSqlDatabase::database("app_connection");
     if (!db.isOpen()) 
     {
