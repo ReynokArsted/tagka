@@ -9,7 +9,8 @@ import untitled 1.0
 import untitled.files 1.0
 import "./" as Example
 
-ApplicationWindow {
+ApplicationWindow 
+{
     id: win
 
     width: 800
@@ -33,25 +34,24 @@ ApplicationWindow {
 
     property bool tagSelectMode: false
     property bool settings_mode: false
+    property bool help_mode: false
     property list<string> tagTargetPaths: []
     property var selectedTagIds: []
 
-///
-    property var candidates: []   // массив: {name, isDir}
+    property var candidates: [] 
     property string currentDirPath: ""
     property string currentPrefix: ""
 
-    // Разделитель для вставки: если пользователь вводил '\', сохраняем '\', иначе '/'
-    function detectSep(input) {
-        // если во вводе есть обратные слэши — используем '\', иначе '/'
+    function detectSep(input) 
+    {
         return (input.indexOf("\\") !== -1) ? "\\" : "/";
     }
 
-    function normalizeForLogic(s) {
+    function normalizeForLogic(s) 
+    {
         return (s || "").replace(/\\/g, "/");
     }
 
-    // Ищем последнюю '/' и режем: dirPath (включая последний '/') + prefix
     function splitDirAndPrefix(normInput) {
         if (normInput.length === 0)
             return { dirPath: "", prefix: "" }
@@ -66,20 +66,18 @@ ApplicationWindow {
         }
     }
 
-    function commonPrefixFromCandidates(cands, prefix) {
-        // общий префикс по полям name, но начинаем с текущего prefix (чтобы LCP не "съехал")
-        if (!cands || cands.length === 0)
-            return ""
+    function commonPrefixFromCandidates(cands, prefix) 
+    {
+        if (!cands || cands.length === 0) return ""
 
         let cp = cands[0].name
-        for (let i = 1; i < cands.length; i++) {
+        for (let i = 1; i < cands.length; i++) 
+        {
             const s = cands[i].name
             while (cp.length > 0 && !s.startsWith(cp))
                 cp = cp.slice(0, cp.length - 1)
             if (cp.length === 0) break
         }
-        // гарантируем, что cp как минимум prefix (иначе это не completion)
-        // но обычно при фильтрации это так и будет:
         if (cp.length < prefix.length)
             return prefix
 
@@ -95,36 +93,29 @@ ApplicationWindow {
         currentDirPath = sp.dirPath
         currentPrefix = sp.prefix
 
-        // Важно: если dirPath пустой, вам нужно решить, что считать текущей директорией.
-        // Для простоты ниже: если пусто — считаем, что пользователь имел в виду "корень" вашего приложения.
-        // Лучше: реализовать в C++ отдельную функцию "getCandidatesForRelative" или передавать рабочую директорию.
         if (currentDirPath === "") {
-            // можно отключить completion или показать пусто
             candidates = []
-            //popup.opened = false
             return
         }
 
         candidates = fileModel.getCandidates(currentDirPath, currentPrefix)
-        console.log("currentDirPath: " + currentDirPath)
-        console.log("currentPrefix: " + currentPrefix)
+        console.log("current dir path: " + currentDirPath)
+        console.log("current prefix: " + currentPrefix)
 
-        if (candidates.length > 0) {
-            //popup.opened = true
-            //fileModel.setFolder(currentDirPath);
+        if (candidates.length > 0) 
+        {
             fileModel.showCandidates(candidates);
-        } else {
-            //popup.opened = false
         }
     }
-///
+
     function startTagging(paths, name) {
         tagTargetPaths = paths
         selectedTagIds = ThingModel.listOfThingies.tagIdsForFile(paths)
         tagSelectMode = true
     }
 
-    function toggleTagSelection(tagId) {
+    function toggleTagSelection(tagId) 
+    {
         const idx = selectedTagIds.indexOf(tagId)
         const arr = selectedTagIds.slice()
         if (idx >= 0) arr.splice(idx, 1)
@@ -132,7 +123,8 @@ ApplicationWindow {
         selectedTagIds = arr
     }
 
-    function removeTagFromSelection(tagId) {
+    function removeTagFromSelection(tagId) 
+    {
         const idx = selectedTagIds.indexOf(tagId)
         if (idx >= 0) {
             const arr = selectedTagIds.slice()
@@ -141,8 +133,10 @@ ApplicationWindow {
         }
     }
 
-    function confirmTagging() {
-        if (tagTargetPaths.length != 0) {
+    function confirmTagging() 
+    {
+        if (tagTargetPaths.length != 0) 
+        {
             const ok = ThingModel.listOfThingies.assignTagsToFile(tagTargetPaths, selectedTagIds)
             if (!ok) console.warn("ERROR: file tags are not saved for: ", tagTargetPaths)
             else fileModel.setFolder(fileModel.currentFolder) 
@@ -150,17 +144,34 @@ ApplicationWindow {
         cancelTagging()
     }
 
-    function cancelTagging() {
+    function cancelTagging() 
+    {
         tagSelectMode = false
         tagTargetPaths = []
         selectedTagIds = []
     }
 
-    onSettings_modeChanged: {
-        if (settings_mode) {
+    onSettings_modeChanged: 
+    {
+        if (settings_mode) 
+        {
             settings_dialog.open()
-        } else if (settings_dialog.visible) {
+        } 
+        else if (settings_dialog.visible) 
+        {
             settings_dialog.close()
+        }
+    }
+
+    onHelp_modeChanged: 
+    {
+        if (help_mode) 
+        {
+            help_dialog.open()
+        } 
+        else if (help_dialog.visible) 
+        {
+            help_dialog.close()
         }
     }
 
@@ -184,14 +195,16 @@ ApplicationWindow {
                 }
         }
 
-        function onTagDeleteRequested(id, name) {
+        function onTagDeleteRequested(id, name) 
+        {
             console.log("Delete tag:", id, name)
             const ok = ThingModel.listOfThingies.removeThing(id)
             if (!ok) console.warn("ERROR: removing tag:", name)
             else win.removeTagFromSelection(id)
         }
 
-        function onTagFilesRequested(id, name) {
+        function onTagFilesRequested(id, name) 
+        {
             console.log("Show files by tag:", id, name)
             const query = name
             input.text = query 
@@ -199,15 +212,18 @@ ApplicationWindow {
         }
     }
 
-    function startRename(path, name) {
+    function startRename(path, name) 
+    {
         editingPath = path
         editingName = name
         renameMode = true
     }
 
-    function commitRename(newName) {
+    function commitRename(newName) 
+    {
         const trimmed = newName.trim()
-        if (trimmed !== "" && editingPath !== "") {
+        if (trimmed !== "" && editingPath !== "") 
+        {
             console.log("Rename: ", editingPath, " -> ", trimmed)
             // fileModel.rename(editingPath, trimmed)
         }
@@ -216,13 +232,15 @@ ApplicationWindow {
         editingName = ""
     }
 
-    function cancelRename() {
+    function cancelRename() 
+    {
         renameMode = false
         editingPath = ""
         editingName = ""
     }
     
-    Item {
+    Item 
+    {
         id: content
 
         property int r: 8
@@ -234,20 +252,23 @@ ApplicationWindow {
         layer.enabled: true
         layer.smooth: true
 
-        Rectangle {
+        Rectangle 
+        {
             anchors.fill: parent
             radius: content.r
             color: Qt.alpha(Theme.borderColor, 0.4)
         }
 
-        Rectangle {
+        Rectangle 
+        {
             anchors.fill: parent
             anchors.margins: content.frame
             radius: content.r - content.frame
             color: Theme.backgroundColor
         }
 
-        Item {
+        Item 
+        {
             anchors.fill: parent
 
             Example.TopBar
@@ -272,13 +293,15 @@ ApplicationWindow {
                 onCloseClicked: win.close() 
             }
 
-            ColumnLayout {
+            ColumnLayout 
+            {
                 anchors.margins: 10
                 anchors.fill: parent
                 anchors.topMargin: top_bar.height
                 anchors.bottomMargin: bottom_bar.height
 
-                RowLayout {
+                RowLayout 
+                {
                     spacing: 2
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -298,13 +321,15 @@ ApplicationWindow {
                         selectedTagIds: win.selectedTagIds
 
                         onSettingsClicked: win.settings_mode = true
+                        onHelpClicked: win.help_mode = true
                         onTaggingConfirmed: win.confirmTagging()
                         onTaggingCancelled: win.cancelTagging()
                     }
 
                     FileListModel { id: fileModel }
 
-                    Rectangle {
+                    Rectangle 
+                    {
                         id: fileListPanel
 
                         Layout.fillWidth: true
@@ -322,7 +347,8 @@ ApplicationWindow {
                         //clip: true
 
                         layer.enabled: true
-                        layer.effect: MultiEffect {
+                        layer.effect: MultiEffect 
+                        {
                             shadowEnabled: true
                             shadowColor: "#40000000"
                             shadowBlur: 0.6
@@ -330,11 +356,13 @@ ApplicationWindow {
                             shadowVerticalOffset: 3
                         }
 
-                        ColumnLayout {
+                        ColumnLayout 
+                        {
                             anchors.fill: parent
                             anchors.margins: 8
 
-                            ListView {
+                            ListView 
+                            {
                                 id: fileListView
                                 
                                 //property alias tagInput: input
@@ -346,7 +374,8 @@ ApplicationWindow {
                                 model: fileModel
                                 property var selected_files: []
 
-                                delegate: Rectangle {
+                                delegate: Rectangle 
+                                {
                                     id: card
 
                                     property bool pressed: false
@@ -364,7 +393,8 @@ ApplicationWindow {
                                     Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
                                     Behavior on color { ColorAnimation { duration: 100 } }
 
-                                    function refreshTagColors() {
+                                    function refreshTagColors() 
+                                    {
                                         const ids = ThingModel.listOfThingies.tagIdsForFile(path)
                                         const colors = []
                                         for (var i = 0; i < ids.length; i++)
@@ -374,7 +404,8 @@ ApplicationWindow {
 
                                     Component.onCompleted: refreshTagColors()
 
-                                    Row {
+                                    Row 
+                                    {
                                         anchors.left: parent.left
                                         anchors.right: tagDots.left
                                         anchors.rightMargin: 8
@@ -382,7 +413,8 @@ ApplicationWindow {
                                         anchors.leftMargin: 12
                                         spacing: 8
 
-                                        TextInput {
+                                        TextInput 
+                                        {
                                             id: renameInput
 
                                             visible: win.renameMode && win.editingPath === path
@@ -396,7 +428,8 @@ ApplicationWindow {
                                             anchors.verticalCenter: parent.verticalCenter
                                             width: parent.width
 
-                                            onVisibleChanged: if (visible) {
+                                            onVisibleChanged: if (visible) 
+                                            {
                                                 text = win.editingName
                                                 forceActiveFocus()
                                                 selectAll()
@@ -407,7 +440,8 @@ ApplicationWindow {
                                             Keys.onEscapePressed: win.cancelRename()
                                         }
 
-                                        Text {
+                                        Text 
+                                        {
                                             visible: !renameInput.visible
                                             text: isDir ? (name + "/") : name
                                             color: Theme.textColor
@@ -418,16 +452,19 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Row {
+                                    Row 
+                                    {
                                         id: tagDots
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
                                         anchors.rightMargin: 12
                                         spacing: 4
 
-                                        Repeater {
+                                        Repeater 
+                                        {
                                             model: card.tagColors
-                                            delegate: Rectangle {
+                                            delegate: Rectangle 
+                                            {
                                                 width: 8
                                                 height: 8
                                                 radius: 4
@@ -438,24 +475,29 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Menu {
+                                    Menu 
+                                    {
                                         id: single_selection_menu
 
                                         property string currentPath: ""
                                         property string currentName: ""
                                         property bool currentIsDir: false
 
-                                        MenuItem {
+                                        MenuItem 
+                                        {
                                             text: qsTr("Задать метки")
-                                            onTriggered: {
+                                            onTriggered: 
+                                            {
                                                 console.log("Tag added for: ", fileListView.selected_files)
                                                 win.startTagging(fileListView.selected_files, single_selection_menu.currentName)
                                                 fileListView.selected_files = []
                                             }
                                         }
-                                        MenuItem {
+                                        MenuItem 
+                                        {
                                             text: qsTr("Открыть")
-                                            onTriggered: {
+                                            onTriggered: 
+                                            {
                                                 if (fileListView.selected_files.length <= 1)
                                                 {
                                                     if (single_selection_menu.currentIsDir) 
@@ -467,9 +509,11 @@ ApplicationWindow {
                                                 }
                                             }
                                         }
-                                        MenuItem {
+                                        MenuItem 
+                                        {
                                             text: qsTr("Открыть с помощью ...")
-                                            onTriggered: {
+                                            onTriggered: 
+                                            {
                                                 if (fileListView.selected_files.length <= 1)
                                                 {
                                                     if (single_selection_menu.currentIsDir) 
@@ -481,7 +525,8 @@ ApplicationWindow {
                                                 }
                                             }
                                         }
-                                        MenuItem {
+                                        MenuItem 
+                                        {
                                             text: qsTr("Переименовать")
                                             onTriggered: 
                                             {
@@ -491,7 +536,8 @@ ApplicationWindow {
                                                 }
                                             }
                                         }
-                                        MenuItem {
+                                        MenuItem 
+                                        {
                                             text: qsTr("Удалить все метки")
                                             onTriggered: 
                                             {
@@ -501,7 +547,8 @@ ApplicationWindow {
                                                 }
                                             }
                                         }
-                                        MenuItem {
+                                        MenuItem 
+                                        {
                                             text: qsTr("Удалить")
                                             onTriggered: 
                                             {
@@ -513,7 +560,8 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    Menu {
+                                    Menu 
+                                    {
                                         id: multi_selection_menu
 
                                         property string currentPath: ""
@@ -550,7 +598,8 @@ ApplicationWindow {
                                         }
                                     }
 
-                                    MouseArea {
+                                    MouseArea 
+                                    {
                                         anchors.fill: parent
                                         acceptedButtons: Qt.LeftButton | Qt.RightButton
 
@@ -633,7 +682,8 @@ ApplicationWindow {
                                 }
                             }
 
-                            Rectangle {
+                            Rectangle 
+                            {
                                 anchors.centerIn: fileListView
                                 //anchors.centerIn: fileListPanel
                                 visible: fileListView.count === 0
@@ -644,7 +694,8 @@ ApplicationWindow {
                                 border.color: Theme.borderColor
                                 border.width: 1
 
-                                Text {
+                                Text 
+                                {
                                     anchors.centerIn: parent
                                     text: qsTr("Нет результатов поиска")
                                     color: Theme.textColor
@@ -658,42 +709,61 @@ ApplicationWindow {
                     }    
                 }
 
-                Dialog {
+                Dialog 
+                {
                     id: settings_dialog
 
-                    modal: true
-                    title: qsTr("Настройки")
-                    standardButtons: Dialog.Cancel | Dialog.Apply
-                    x: (win.width - width) / 2
-                    y: (win.height - height) / 2
-                    width: 340
+                    visible: win.settings_mode
+                    modal: false
+                    closePolicy: !Popup.CloseOnPressOutside | !Popup.CloseOnEscape
+                    anchors.centerIn: parent
+                    height: win.height - 8
+                    width: win.width - 8
 
-                    onRejected: win.settings_mode = false
-                    //onApplied:
-                    //onClosed: if (win.tagSelectMode) win.cancelTagging()
+                    background: Rectangle 
+                    {
+                        anchors.fill: parent
+                        radius: 4
+                        color: Theme.fieldBackground
+                        border.width: 1
+                        border.color: Theme.borderColor
+                    }
 
-                    contentItem: ColumnLayout {
+                    onClosed: win.settings_mode = false
+
+                    contentItem: ColumnLayout 
+                    {
                         spacing: 10
 
-                        Example.ThemedButton {
+                        Text 
+                        {
+                            text: qsTr("Настройки")
+                            font.pixelSize: 18
+                            color: Theme.textColor
+                        }
+
+                        Example.ThemedButton 
+                        {
                             text: Theme.isDarkMode ? qsTr("Установить светлую тему") : qsTr("Установить тёмную тему")
                             onClicked: Theme.isDarkMode = !Theme.isDarkMode
                         }
-
-                        Example.ThemedButton {
-                            text: Translator.language === "en" ? qsTr("Изменить язык на русский") : qsTr("Изменить язык на английский")
+                        Example.ThemedButton 
+                        {
+                            text: Translator.language === "en" ? "Change language to Russian" : "Изменить язык на английский"
                             onClicked: Translator.language = Translator.language === "en" ? "ru" : "en"
                         }
-
-                        Flow {
+                        Flow 
+                        {
                             Layout.fillWidth: true
                             Layout.preferredHeight: 160
                             spacing: 6
 
-                            Repeater {
+                            Repeater 
+                            {
                                 model: ThingModel.listOfThingies
 
-                                delegate: Rectangle {
+                                delegate: Rectangle 
+                                {
                                     width: tagLabel.implicitWidth + 24
                                     height: 30
                                     radius: 15
@@ -703,7 +773,8 @@ ApplicationWindow {
 
                                     Behavior on color { ColorAnimation { duration: 100 } }
 
-                                    Text {
+                                    Text 
+                                    {
                                         id: tagLabel
 
                                         anchors.centerIn: parent
@@ -712,6 +783,135 @@ ApplicationWindow {
                                     }
                                 }
                             }
+                        }
+
+                        Example.ThemedButton 
+                        {
+                            text: qsTr("Применить")
+                        }
+                        Example.ThemedButton 
+                        {
+                            text: qsTr("Закрыть")
+                            onClicked: win.settings_mode = false
+                        }
+                    }
+                }
+
+                Dialog 
+                {
+                    id: help_dialog
+
+                    visible: win.help_mode
+                    modal: false      
+                    closePolicy: !Popup.CloseOnPressOutside | !Popup.CloseOnEscape
+                    anchors.centerIn: parent
+                    width: win.width - 8
+                    height: win.height - 8
+
+                    background: Rectangle 
+                    {
+                        anchors.fill: parent
+                        radius: 4
+                        color: Theme.fieldBackground
+                        border.width: 1
+                        border.color: Theme.borderColor
+                    }
+
+                    onClosed: win.help_mode = false
+
+                    contentItem: ColumnLayout 
+                    {
+                        spacing: 10
+
+                        Text 
+                        {
+                            text: qsTr("Справочник")
+                            font.pixelSize: 18
+                            color: Theme.textColor
+                        }
+
+                        ListView 
+                        {
+                            id: help_view
+                                
+                                Layout.fillWidth: true
+                                Layout.fillHeight: true
+                                clip: true
+                                spacing: 6
+                                model: ListModel 
+                                {
+                                    ListElement { topic: "Тема 1" }
+                                    ListElement { topic: "Тема 2" }
+                                    ListElement { topic: "Тема 3" }
+                                    ListElement { topic: "Тема 4" }
+                                    ListElement { topic: "Тема 5" }
+                                }
+
+                                delegate: Rectangle 
+                                {
+                                    id: topic
+
+                                    property bool pressed: false
+                                    width: ListView.view.width
+                                    height: 36
+                                    radius: 8
+                                    border.width: 2
+
+                                    scale: pressed ? 0.98 : 1.0
+
+                                    Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+                                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                                    Row 
+                                    {
+                                        anchors.left: parent.left
+                                        anchors.rightMargin: 8
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        anchors.leftMargin: 12
+                                        spacing: 8
+
+                                    Text 
+                                    {
+                                        text: "test topic"
+                                        color: Theme.textColor
+                                        elide: Text.ElideRight
+                                        verticalAlignment: Text.AlignVCenter
+                                        anchors.verticalCenter: topic.verticalCenter
+                                        width: topic.width
+                                    }
+                                    }
+
+                                    MouseArea 
+                                    {
+                                        anchors.fill: parent
+                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+                                        onPressed: function(mouse) 
+                                        {
+                                            if (mouse.button === Qt.RightButton) 
+                                            {
+                                                topic.pressed = false
+                                            } 
+                                            else if (mouse.button === Qt.LeftButton) topic.pressed = true
+                                        }
+
+                                        onReleased: function(mouse)
+                                        {
+                                            if (mouse.button === Qt.LeftButton) topic.pressed = false
+                                        }
+
+                                        onCanceled: 
+                                        {
+                                            topic.pressed = false
+                                        }
+                                    }
+                                }
+                        }
+
+                        Example.ThemedButton 
+                        {
+                            text: qsTr("Закрыть")
+                            onClicked: win.help_mode = false
                         }
                     }
                 }

@@ -1,4 +1,5 @@
 #include <QDebug>
+#include <QDir>
 
 #include "ThingieListModel.h"
 
@@ -27,16 +28,7 @@ QHash<int, QByteArray> ThingieListModel::roleNames() const
 void ThingieListModel::addThing(const QString &name)
 {
     const int row = _thingies.size();
-    beginInsertRows(QModelIndex(), row, row);
 
-    // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    // db.setDatabaseName("test.db");
-
-    // if (!db.open()) {
-    //     qWarning() << "DB open failed: " << db.lastError().text();
-    //     endInsertRows();
-    //     return;
-    // }
     QSqlDatabase db = QSqlDatabase::database("app_connection");
     if (!db.isOpen()) 
     {
@@ -55,6 +47,7 @@ void ThingieListModel::addThing(const QString &name)
     }
 
     const int newId = query.lastInsertId().toInt();
+    beginInsertRows(QModelIndex(), row, row);
     _thingies.append(new Thingie(newId, name, this));
     endInsertRows();
 }
@@ -66,13 +59,6 @@ bool ThingieListModel::removeThing(int tagId)
 
     if (row < 0 || row >= _thingies.size()) return false;
 
-    // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    // db.setDatabaseName("test.db");
-
-    // if (!db.open()) {
-    //     qWarning() << "DB open failed: " << db.lastError().text();
-    //     return false;
-    // }
     QSqlDatabase db = QSqlDatabase::database("app_connection");
     if (!db.isOpen()) 
     {
@@ -106,14 +92,6 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
 {
     if (paths.isEmpty()) return false;
 
-    // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    // db.setDatabaseName("test.db");
-
-    // if (!db.open()) 
-    // {
-    //     qWarning() << "DB open failed: " << db.lastError().text();
-    //     return false;
-    // }
     QSqlDatabase db = QSqlDatabase::database("app_connection");
     if (!db.isOpen()) 
     {
@@ -217,13 +195,6 @@ QSet<int> ThingieListModel::tagIdsForFile(const QList<QString> &paths) const
     QSet<int> result;
     if (paths.isEmpty()) return result;
 
-    // QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    // db.setDatabaseName("test.db");
-
-    // if (!db.open()) {
-    //     qWarning() << "DB open failed: " << db.lastError().text();
-    //     return result;
-    // }
     QSqlDatabase db = QSqlDatabase::database("app_connection");
     if (!db.isOpen()) 
     {

@@ -42,6 +42,7 @@ qt_add_qml_module(appuntitled
         ThingModel.h ThingModel.cpp
         FileListModel.h FileListModel.cpp
         DataBaseModule.h DataBaseModule.cpp
+        UsnJournalMonitor.h
 )
 
 
