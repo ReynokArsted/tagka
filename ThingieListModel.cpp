@@ -1,5 +1,8 @@
 #include <QDebug>
 #include <QDir>
+#include <string>
+#include <windows.h>
+#include <winioctl.h>
 
 #include "ThingieListModel.h"
 
@@ -41,7 +44,7 @@ void ThingieListModel::addThing(const QString &name)
     query.bindValue(":name", name);
 
     if (!query.exec()) {
-        qWarning() << "INSERT tag failed:" << query.lastError().text();
+        qWarning() << "ERROR: INSERT tag failed with error" << query.lastError().text();
         endInsertRows();
         return;
     }
@@ -70,13 +73,13 @@ bool ThingieListModel::removeThing(int tagId)
     deleteLinks.prepare("DELETE FROM tag_file WHERE tag_id = :tagId");
     deleteLinks.bindValue(":tagId", tagId);
     if (!deleteLinks.exec())
-        qWarning() << "ERROR: delete tag_file failed: " << deleteLinks.lastError().text();
+        qWarning() << "ERROR: delete tag_file failed with error" << deleteLinks.lastError().text();
 
     QSqlQuery deleteTag(db);
     deleteTag.prepare("DELETE FROM tag WHERE id = :tagId");
     deleteTag.bindValue(":tagId", tagId);
     if (!deleteTag.exec()) {
-        qWarning() << "ERROR: delete tag failed: " << deleteTag.lastError().text();
+        qWarning() << "ERROR: delete tag failed with error" << deleteTag.lastError().text();
         return false;
     }
 
@@ -115,7 +118,7 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
         selectFile.bindValue(":path", paths[i]);
         if (!selectFile.exec()) 
         {
-            qWarning() << "ERROR: select file failed: " << selectFile.lastError().text();
+            qWarning() << "ERROR: select file failed with error" << selectFile.lastError().text();
             return false;
         }
 
@@ -123,15 +126,60 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
         if (selectFile.next()) fileId = selectFile.value(0).toInt();
         else 
         {
+            HANDLE file = CreateFile
+            (
+                reinterpret_cast<LPCWSTR>(paths[i].utf16()),
+                0,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                nullptr,
+                OPEN_EXISTING,
+                0,
+                nullptr
+            );
+
+            if (file == INVALID_HANDLE_VALUE)
+            {
+                qDebug() << "ERROR: file check failed with error" << GetLastError();
+                return false;
+            }
+
+            FILE_ID_INFO file_info{};
+            BOOL ok = GetFileInformationByHandleEx
+            (
+                file,
+                FileIdInfo,
+                &file_info,
+                sizeof(file_info)
+            );
+
+            DWORD error = GetLastError();
+            CloseHandle(file);
+
+            if (!ok) 
+            {
+                SetLastError(error);
+                qDebug() << "ERROR: GetFileInformationByHandleEx failed";
+                return false;
+            }
+
+            QByteArray idBytes
+            (
+                reinterpret_cast<const char*>(file_info.FileId.Identifier),
+                sizeof(file_info.FileId.Identifier)
+            );
+
             QSqlQuery insertFile(db);
-            insertFile.prepare("INSERT INTO file(path) VALUES(:path)");
+            insertFile.prepare("INSERT INTO file(path, system_id, volume_id) VALUES(:path, :system_id, :volume_id)");
             insertFile.bindValue(":path", paths[i]);
+            insertFile.bindValue(":system_id", idBytes.toHex());
+            insertFile.bindValue(":volume_id", 1); ///
             if (!insertFile.exec()) 
             {
-                qWarning() << "ERROR: insert file failed: " << insertFile.lastError().text();
+                qWarning() << "ERROR: insert file failed with error" << insertFile.lastError().text();
                 return false;
             }
             fileId = insertFile.lastInsertId().toInt();
+            emit newFileAdded(paths[i]);
         }
         existingFileIds.push_back(fileId);
 
@@ -140,7 +188,7 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
         selectExisting.bindValue(":fileId", fileId);
         if (!selectExisting.exec()) 
         {
-            qWarning() << "ERROR: select existing tag_file failed: " << selectExisting.lastError().text();
+            qWarning() << "ERROR: select existing tag_file failed with error" << selectExisting.lastError().text();
             return false;
         }
 
@@ -174,7 +222,7 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
             deleteLink.bindValue(":tagId", tagId);
             deleteLink.bindValue(":fileId", existingFileIds[i]);
             if (!deleteLink.exec())
-                qWarning() << "ERROR: delete tag_file failed: " << deleteLink.lastError().text();
+                qWarning() << "ERROR: delete tag_file failed with error" << deleteLink.lastError().text();
         }
         for (int tagId : toAdd) 
         {
@@ -183,66 +231,11 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
             insertTagFile.bindValue(":tagId", tagId);
             insertTagFile.bindValue(":fileId", existingFileIds[i]);
             if (!insertTagFile.exec())
-                qWarning() << "ERROR: insert tag_file failed: " << insertTagFile.lastError().text();
+                qWarning() << "ERROR: insert tag_file failed with error" << insertTagFile.lastError().text();
         }
     }
-
+    emit tagsAssigned(paths);
     return true;
-}
-
-QSet<int> ThingieListModel::tagIdsForFile(const QList<QString> &paths) const
-{
-    QSet<int> result;
-    if (paths.isEmpty()) return result;
-
-    QSqlDatabase db = QSqlDatabase::database("app_connection");
-    if (!db.isOpen()) 
-    {
-        qWarning() << "ERROR: database is not open";
-        return result;
-    }
-    QSqlQuery query(db);
-
-    QVector<QSet<int>> tags_ids_sets;
-    for (int i = 0; i < paths.length(); i++)
-    {
-        QSqlQuery query(db);
-        query.prepare
-        (
-            "SELECT tag_file.tag_id FROM tag_file "
-            "JOIN file ON file.id = tag_file.file_id "
-            "WHERE file.path = :paths"
-        );
-        query.bindValue(":paths", paths[i]);
-
-        if (!query.exec()) 
-        {
-            qWarning() << "ERROR: select tagIdsForFile failed: " << query.lastError().text();
-            return result;
-        }
-
-        int set_ind = tags_ids_sets.isEmpty()? 0 : tags_ids_sets.length();
-        tags_ids_sets.push_back(QSet<int>{});
-        while (query.next())
-            tags_ids_sets[set_ind].insert(query.value(0).toInt());
-    }
-
-    if (tags_ids_sets.isEmpty()) return result;
-    int min_length = tags_ids_sets[0].count();
-    for (int i = 0; i < tags_ids_sets.length(); i++)
-    {
-        if (tags_ids_sets[i].count() < min_length)
-        {
-            min_length = tags_ids_sets[i].count();
-            tags_ids_sets.swapItemsAt(i, 0);
-        }
-    }
-
-    result = tags_ids_sets[0];
-    for (int i = 1; i < tags_ids_sets.count(); ++i)
-        result &= tags_ids_sets[i];
-
-    return result;
 }
 
 QVariant ThingieListModel::data(const QModelIndex &index, int role) const
@@ -289,16 +282,4 @@ void ThingieListModel::move(int from, int to)
     beginMoveRows(QModelIndex(), from, from, QModelIndex(), destRow);
     _thingies.move(from, to);
     endMoveRows();
-}
-
-QString ThingieListModel::print()
-{
-    QString tmp;
-    for(int i = 0; i < _thingies.size(); ++i) {
-        tmp.append(QString::number(i));
-        tmp.append(": ");
-        tmp.append(_thingies.at(i)->name());
-        tmp.append("; ");
-    }
-    return tmp;
 }

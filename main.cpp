@@ -35,71 +35,43 @@ int main(int argc, char *argv[])
     QSqlDatabase db = QSqlDatabase::database("app_connection");
  
     UsnJournalMonitor monitor;
+    FileListModel fileListModel;
     ThingModel thingModel;
 
-    QObject::connect
-    (
-        &monitor,
-        &UsnJournalMonitor::fileMoved,
-        &app,
-        [db](const QString &oldPath,
-           const QString &newPath,
-           quint64 fileId)
-        {
-            qDebug() << "id:" << fileId << "from" << oldPath << "to" << newPath;
-
-            QString o_p = oldPath;
-            QString n_p = newPath;
-
-            if (o_p.startsWith(QStringLiteral("\\\\?\\")))
-                o_p.remove(0, 4);
-            o_p.replace('\\', '/');
-
-            if (n_p.startsWith(QStringLiteral("\\\\?\\")))
-                n_p.remove(0, 4);
-            n_p.replace('\\', '/');
-
-            qDebug() << "o_p = " << o_p;
-            qDebug() << "n_p = " << n_p;
-
-            QSqlQuery query(db);
-            query.prepare("UPDATE file SET path = :new_path WHERE path = :old_path");
-            query.bindValue(":new_path", n_p);
-            query.bindValue(":old_path", o_p);
-
-            if (!query.exec()) 
-            {
-                qWarning() << "ERROR: update file path failed:" << query.lastError().text();
-            }
-        }
-    );
-
+    // QObject::connect
+    // (
+    //     thingModel.listOfThingies(),
+    //     &ThingieListModel::newFileAdded,
+    //     &monitor,
+    //     &UsnJournalMonitor::onNewFileAdded
+    // );
     QObject::connect
     (
         &monitor,
         &UsnJournalMonitor::fileDeleted,
         &app,
         [](const QString &path,
-           quint64 fileId)
+           const QByteArray &fileId)
         {
-            qDebug() << "id:" << fileId << "deleted by" << path;
+            qDebug() << "-> id:" << fileId << "deleted by" << path;
         }
     );
-
     monitor.start();
 
     //query.exec("create table file(id integer, path text, PRIMARY KEY(id AUTOINCREMENT))");
     //query.exec("create table tag_file(id integer, tag_id integer, file_id integer, PRIMARY KEY(id AUTOINCREMENT))");
-    // query.exec("create table tag(id integer, tag_name varchar(20), PRIMARY KEY(id AUTOINCREMENT))");
-    // query.exec("insert into tag(tag_name) values('spring')");
-    // query.exec("insert into tag(tag_name) values('cat')");
-    // query.exec("insert into tag(tag_name) values('electronics')");
+    //query.exec("create table tag(id integer, tag_name varchar(20), PRIMARY KEY(id AUTOINCREMENT))");
+    //query.exec("insert into tag(tag_name) values('spring')");
+    //query.exec("insert into tag(tag_name) values('cat')");
+    //query.exec("insert into tag(tag_name) values('electronics')");
 
     QQmlApplicationEngine engine;
     Translator translator(&engine);
     engine.rootContext()->setContextProperty("Translator", &translator);
     engine.rootContext()->setContextProperty("DataBaseModule", &db_module);
     engine.rootContext()->setContextProperty("ThingModel", &thingModel);
+    engine.rootContext()->setContextProperty("FileListModel", &fileListModel);
+    engine.rootContext()->setContextProperty("UsnJournalMonitor", &monitor);
 
     qmlRegisterType<FileListModel>("untitled.files", 1, 0, "FileListModel");
 

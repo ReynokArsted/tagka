@@ -25,4 +25,5 @@ QtObject {
     property color fieldBackground: isDarkMode ? darkFieldBg : lightFieldBg
     property color borderColor: isDarkMode ? darkBorder : lightBorder
     property color tagsBorder: isTagSelectMode ? darkBorder : lightBorder
+    property color accentColor: '#ffda37'
 }

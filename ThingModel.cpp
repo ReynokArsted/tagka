@@ -17,7 +17,7 @@ ThingModel::ThingModel(QObject* parent) : QObject(parent)
 
     if (!query.exec("SELECT id, tag_name FROM tag")) 
     {
-        qWarning() << "SELECT tag failed: " << query.lastError().text();
+        qWarning() << "ERROR: SELECT tag failed with error" << query.lastError().text();
         return;
     }
 

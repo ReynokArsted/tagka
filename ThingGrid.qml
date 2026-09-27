@@ -6,126 +6,6 @@ import QtQuick.Effects
 import untitled 1.0
 import "./" as Example
 
-// GridView {
-//     id: root
-
-//     property bool highlightBorders: false
-//     property bool isTagSelectionMode: false
-//     property QtObject hub
-//     property var selectedTagIds: [] 
-
-//     property Item dragOverlay 
-
-//     width: 600
-//     height: 200
-//     cellWidth: 100
-//     cellHeight: 100
-//     clip: true
-
-//     displaced: Transition {
-//         NumberAnimation {
-//             properties: "x,y"
-//             easing.type: Easing.OutQuad
-//         }
-//     }
-
-//     model: DelegateModel {
-//         id: visualModel
-
-//         model: ThingModel.listOfThingies
-
-//         delegate: DropArea {
-//             id: delegateRoot
-
-//             required property color color
-//             required property string name
-//             required property int id
-//             property int modelIndex
-//             property int visualIndex: DelegateModel.itemsIndex
-
-//             readonly property bool isSelected:
-//                 root.isTagSelectionMode && root.selectedTagIds.indexOf(id) !== -1
-
-//             width: root.cellWidth
-//             height: root.cellHeight
-
-//             onEntered: function (drag) {
-//                 var from = (drag.source as Example.ThingTile).visualIndex
-//                 var to = thingTile.visualIndex
-//                 visualModel.items.move(from, to)
-//             }
-
-//             onDropped: function (drag) {
-//                 var from = modelIndex
-//                 var to = (drag.source as Example.ThingTile).visualIndex
-//                 ThingModel.listOfThingies.move(from, to)
-//             }
-
-//             Example.ThingTile {
-//                 id: thingTile
-
-//                 dragParent: root.dragOverlay 
-
-//                 width: root.cellWidth * 0.8
-//                 height: root.cellHeight * 0.8
-//                 //dragParent: root
-//                 visualIndex: delegateRoot.visualIndex
-//                 color: delegateRoot.color
-//                 borderHighlight: delegateRoot.isSelected 
-
-//     layer.enabled: true
-//     layer.effect: MultiEffect {
-//         shadowEnabled: true
-//         shadowColor: "#40000000"
-//         shadowBlur: 0.5
-//         shadowHorizontalOffset: 0
-//         shadowVerticalOffset: 2
-//     }
-
-//                 onPressed: {
-//                     delegateRoot.modelIndex = visualIndex 
-//                 }
-
-//                 onClicked: {
-//                     root.hub.selected(delegateRoot.id, delegateRoot.name)
-//                     ThingModel.listOfThingies.move(delegateRoot.visualIndex, 0)  
-//                 }
-                
-//                 onRightClicked: tagMenu.popup()
-//                 Menu {
-//                     id: tagMenu
-
-//                     MenuItem {
-//                         text: qsTr("Показать файлы по метке")
-//                         onTriggered: 
-//                         {
-//                             root.hub.tagFilesRequested(delegateRoot.id, delegateRoot.name)
-//                             ThingModel.listOfThingies.move(delegateRoot.visualIndex, 0) 
-//                         }
-//                     }
-//                     MenuItem {
-//                         text: qsTr("Удалить метку")
-//                         onTriggered: root.hub.tagDeleteRequested(delegateRoot.id, delegateRoot.name)
-//                     }
-//                 }
-
-//                 Text {
-//                     anchors.fill: parent
-//                     anchors.centerIn: parent
-//                     horizontalAlignment: Text.AlignHCenter
-//                     verticalAlignment: Text.AlignVCenter
-//                     color: "white"
-//                     anchors.margins: 5
-//                     fontSizeMode: Text.Fit
-//                     minimumPixelSize: 10
-//                     font.pixelSize: 30
-//                     text: delegateRoot.name
-//                 }
-//             }
-//         }
-//     }
-// }
-
 Item 
 {
     id: tag_flow
@@ -135,8 +15,6 @@ Item
     property QtObject hub
     property var selectedTagIds: []
     property Item dragOverlay
-    // property int cellWidth: 100
-    // property int cellHeight: 100
 
     width: 600
     height: 200
@@ -159,22 +37,21 @@ Item
             spacing: 8
             clip: true
 
-            property int cellWidth: 100
-            property int cellHeight: 100
+            property int cellHeight: 48
 
             move: Transition 
             {
                 NumberAnimation 
                 {
                     properties: "x,y"
-                duration: 200
-                easing.type: Easing.OutQuad
+                    duration: 200
+                    easing.type: Easing.OutQuad
                 }
             }
 
-            DelegateModel 
+            Repeater 
             {
-                id: visualModel
+                id: repeater
 
                 model: ThingModel.listOfThingies
 
@@ -185,17 +62,22 @@ Item
                     required property color color
                     required property string name
                     required property int id
-                    required property int index
+                    required property int index 
 
-                    property int modelIndex: -1
-                    property int visualIndex: DelegateModel.itemsIndex
-
-                    width: flow.cellWidth
+                    width: nameMetrics.width + 24
                     height: flow.cellHeight
 
                     readonly property bool isSelected:
                         tag_flow.isTagSelectionMode &&
                         tag_flow.selectedTagIds.indexOf(id) !== -1
+
+                    TextMetrics 
+                    {
+                        id: nameMetrics
+
+                        font.pixelSize: 18
+                        text: delegateRoot.name
+                    }
 
                     onEntered: function (drag) 
                     {
@@ -203,51 +85,32 @@ Item
 
                         if (!sourceTile || sourceTile === thingTile) return
 
-                        const from = sourceTile.visualIndex
-                        const to = delegateRoot.visualIndex
-
-                        if (from !== to) visualModel.items.move(from, to)
-                    }
-
-                    onDropped: function (drag) 
-                    {
-                        const sourceTile = drag.source
-
-                        if (!sourceTile) return
-
-                        const from = sourceTile.modelIndex
-                        const to = delegateRoot.visualIndex
+                        const from = sourceTile.visualIndex 
+                        const to = delegateRoot.index
 
                         if (from !== to) ThingModel.listOfThingies.move(from, to)
                     }
+
+                    onDropped: function (drag) {}
 
                     Example.ThingTile 
                     {
                         id: thingTile
 
-                        width: flow.cellWidth * 0.8
-                        height: flow.cellHeight * 0.8
+                        width: delegateRoot.width
+                        height: delegateRoot.height
 
                         dragParent: tag_flow.dragOverlay
-                        visualIndex: delegateRoot.visualIndex
+                        visualIndex: delegateRoot.index
 
                         color: delegateRoot.color
                         borderHighlight: delegateRoot.isSelected
 
-                        onPressed: delegateRoot.modelIndex = index
-
                         onClicked: 
                         {
-                            tag_flow.hub.selected
-                            (
-                                delegateRoot.id,
-                                delegateRoot.name
-                            )
-                            ThingModel.listOfThingies.move
-                            (
-                                delegateRoot.visualIndex,
-                                0
-                            )
+                            tag_flow.hub.selected(delegateRoot.id, delegateRoot.name)
+                            if (delegateRoot.index !== 0)
+                                ThingModel.listOfThingies.move(delegateRoot.index, 0)
                         }
 
                         onRightClicked: tagMenu.popup()
@@ -262,16 +125,9 @@ Item
 
                                 onTriggered: 
                                 {
-                                    tag_flow.hub.tagFilesRequested
-                                    (
-                                        delegateRoot.id,
-                                        delegateRoot.name
-                                    )
-                                   ThingModel.listOfThingies.move
-                                    (
-                                        delegateRoot.visualIndex,
-                                        0
-                                    )
+                                    tag_flow.hub.tagFilesRequested(delegateRoot.id, delegateRoot.name)
+                                    if (delegateRoot.index !== 0)
+                                        ThingModel.listOfThingies.move(delegateRoot.index, 0)
                                 }
                             }
 
@@ -281,17 +137,13 @@ Item
 
                                 onTriggered: 
                                 {
-                                    tag_flow.hub.tagDeleteRequested
-                                    (
-                                        delegateRoot.id,
-                                        delegateRoot.name
-                                    )
+                                    tag_flow.hub.tagDeleteRequested(delegateRoot.id, delegateRoot.name)
                                 }
                             }
                         }
 
                         Text 
-                        {   
+                        {
                             anchors.fill: parent
                             anchors.margins: 5
                             horizontalAlignment: Text.AlignHCenter
@@ -299,15 +151,11 @@ Item
 
                             color: "white"
                             text: delegateRoot.name
-
-                            fontSizeMode: Text.Fit
-                            minimumPixelSize: 10
-                            font.pixelSize: 30
+                            font.pixelSize: 18
                         }
                     }
-                }
+                }    
             }
-            Repeater { model: visualModel }
         }
     }
 }

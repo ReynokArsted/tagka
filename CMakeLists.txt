@@ -42,9 +42,8 @@ qt_add_qml_module(appuntitled
         ThingModel.h ThingModel.cpp
         FileListModel.h FileListModel.cpp
         DataBaseModule.h DataBaseModule.cpp
-        UsnJournalMonitor.h
+        UsnJournalMonitor.h UsnJournalMonitor.cpp
 )
-
 
 set_target_properties(appuntitled PROPERTIES
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
