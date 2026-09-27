@@ -150,15 +150,16 @@ RowLayout {
             //onAccepted: search_panel.folderChanged(text)
             onAccepted:
             {
-                        if (search_panel.candidates &&
-            search_panel.candidates.length > 0) {
-            search_panel.acceptFirstCandidate()
-        } else {
-            search_panel.folderChanged(text)
-
-            if (search_panel.fileModel)
-                search_panel.fileModel.setFolder(text)
-        }
+                if (search_panel.candidates && search_panel.candidates.length > 0) 
+                {
+                    search_panel.acceptFirstCandidate()
+                }
+                else 
+                {
+                    search_panel.folderChanged(text)
+                    if (search_panel.fileModel)
+                        search_panel.fileModel.setFolder(text)
+                }
             }
 
             Keys.onPressed: function(event) {

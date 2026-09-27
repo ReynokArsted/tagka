@@ -23,7 +23,7 @@ bool DataBaseModule::open()
 
     if (!db.open()) 
     {
-        qWarning() << "DB open failed:" << db.lastError().text();
+        qWarning() << "ERROR: DB open failed with error" << db.lastError().text();
         return false;
     }
     return true;

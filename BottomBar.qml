@@ -11,9 +11,6 @@ Rectangle
     property real corner_radius: 0
     property Window move_target: null
 
-    // signal minimizeClicked()
-    // signal closeClicked()
-
     height: 36
     color: Theme.backgroundColor
     radius: corner_radius

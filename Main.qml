@@ -35,6 +35,7 @@ ApplicationWindow
     property bool tagSelectMode: false
     property bool settings_mode: false
     property bool help_mode: false
+    property bool file_find_error_mode: false
     property list<string> tagTargetPaths: []
     property var selectedTagIds: []
 
@@ -110,7 +111,7 @@ ApplicationWindow
 
     function startTagging(paths, name) {
         tagTargetPaths = paths
-        selectedTagIds = ThingModel.listOfThingies.tagIdsForFile(paths)
+        selectedTagIds = fileModel.tagIdsForFile(paths)
         tagSelectMode = true
     }
 
@@ -139,7 +140,7 @@ ApplicationWindow
         {
             const ok = ThingModel.listOfThingies.assignTagsToFile(tagTargetPaths, selectedTagIds)
             if (!ok) console.warn("ERROR: file tags are not saved for: ", tagTargetPaths)
-            else fileModel.setFolder(fileModel.currentFolder) 
+            else fileListView.selected_files = []
         }
         cancelTagging()
     }
@@ -175,6 +176,18 @@ ApplicationWindow
         }
     }
 
+    onFile_find_error_modeChanged: 
+    {
+        if (file_find_error_mode) 
+        {
+            file_find_error_dialog.open()
+        } 
+        else if (file_find_error_dialog.visible) 
+        {
+            file_find_error_dialog.close()
+        }
+    }
+
     Example.SignalHub { id: hub }
     Connections 
     {
@@ -194,7 +207,6 @@ ApplicationWindow
                     fileModel.setFolder(tag_panel.tagInput.text)
                 }
         }
-
         function onTagDeleteRequested(id, name) 
         {
             console.log("Delete tag:", id, name)
@@ -207,7 +219,7 @@ ApplicationWindow
         {
             console.log("Show files by tag:", id, name)
             const query = name
-            input.text = query 
+            tag_panel.tagInput.text = query
             fileModel.setFolder(query) 
         }
     }
@@ -365,13 +377,12 @@ ApplicationWindow
                             {
                                 id: fileListView
                                 
-                                //property alias tagInput: input
                                 property alias tagInput: tag_panel.tagInput
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 clip: true
                                 spacing: 6
-                                model: fileModel
+                                model: fileModel.get_files
                                 property var selected_files: []
 
                                 delegate: Rectangle 
@@ -380,11 +391,13 @@ ApplicationWindow
 
                                     property bool pressed: false
                                     property var tagColors: []
+                                    property string path: modelData.path
+                                    property string name: modelData.name
+                                    property bool isDir: modelData.isDir
 
                                     width: ListView.view.width
                                     height: 36
                                     radius: 8
-                                    color: fileListView.selected_files.indexOf(path) !== -1 ? Theme.selectionColor : Theme.fieldBackground
                                     border.color: fileListView.selected_files.indexOf(path) !== -1 ? Theme.accentColor : Theme.borderColor
                                     border.width: fileListView.selected_files.indexOf(path) !== -1 ? 2 : 1
 
@@ -395,14 +408,24 @@ ApplicationWindow
 
                                     function refreshTagColors() 
                                     {
-                                        const ids = ThingModel.listOfThingies.tagIdsForFile(path)
+                                        const ids = fileModel.tagIdsForFile([path])
                                         const colors = []
                                         for (var i = 0; i < ids.length; i++)
-                                            colors.push(ThingModel.listOfThingies.colorForId(ids[i]))
+                                        colors.push(ThingModel.listOfThingies.colorForId(ids[i]))
                                         tagColors = colors
                                     }
 
                                     Component.onCompleted: refreshTagColors()
+
+                                    Connections 
+                                    {
+                                        target: ThingModel.listOfThingies
+                                        function onTagsAssigned(paths) 
+                                        {
+                                            if (paths.indexOf(path) !== -1)
+                                                card.refreshTagColors()
+                                        }
+                                    }
 
                                     Row 
                                     {
@@ -575,7 +598,7 @@ ApplicationWindow
                                             {
                                                 console.log("Tag added for: ", fileListView.selected_files)
                                                 win.startTagging(fileListView.selected_files, multi_selection_menu.currentName)
-                                                fileListView.selected_files = []
+                                                //fileListView.selected_files = []
                                             }
                                         }
                                         MenuItem 
@@ -651,27 +674,20 @@ ApplicationWindow
                                             else if (mouse.button === Qt.LeftButton) 
                                             {
                                                 fileListView.currentIndex = index
+                                                if (fileListView.selected_files !== []) // clear selection
+                                                {
+                                                    fileListView.selected_files = []
+                                                }
+                                                fileListView.selected_files.push(path)
+                                                fileListView.selected_files = fileListView.selected_files.slice()
                                             }
                                         }
                                         onDoubleClicked: function(mouse)
                                         {
-                                            if (mouse.button === Qt.LeftButton) 
-                                            { 
-                                                if (isDir) {
-                                                    const p = fileModel.current_folder()
-                                                    console.log("current folder = " + p);
-                                                    if (p.endsWith("/"))
-                                                    {
-                                                        fileListView.tagInput.text = p + name + "/"
-                                                        fileModel.setFolder(p + name + "/")
-                                                    }
-                                                    else
-                                                    {
-                                                        fileListView.tagInput.text = p + "/" + name + "/"
-                                                        fileModel.setFolder(p + "/" + name + "/")
-                                                    }
-                                                } 
-                                                else fileModel.openFile(path)
+                                            if (!(mouse.modifiers & Qt.ControlModifier))
+                                            {
+                                                if (isDir) fileModel.setFolder(path + "/")
+                                                else fileModel.openFile(path)   
                                             }
                                         }
                                         onCanceled: 
@@ -680,29 +696,28 @@ ApplicationWindow
                                         }
                                     }
                                 }
-                            }
 
-                            Rectangle 
-                            {
-                                anchors.centerIn: fileListView
-                                //anchors.centerIn: fileListPanel
-                                visible: fileListView.count === 0
-                                width: 220
-                                height: 60
-                                radius: 8
-                                color: Theme.fieldBackground
-                                border.color: Theme.borderColor
-                                border.width: 1
-
-                                Text 
+                                Rectangle 
                                 {
                                     anchors.centerIn: parent
-                                    text: qsTr("Нет результатов поиска")
-                                    color: Theme.textColor
-                                    font.pixelSize: 14
-                                    horizontalAlignment: Text.AlignHCenter
-                                    wrapMode: Text.WordWrap
-                                    width: parent.width - 20
+                                    visible: fileListView.count === 0
+                                    width: 220
+                                    height: 60
+                                    radius: 8
+                                    color: Theme.fieldBackground
+                                    border.color: Theme.borderColor
+                                    border.width: 1
+
+                                    Text 
+                                    {
+                                        anchors.centerIn: parent
+                                        text: qsTr("Нет результатов поиска")
+                                        color: Theme.textColor
+                                        font.pixelSize: 14
+                                        horizontalAlignment: Text.AlignHCenter
+                                        wrapMode: Text.WordWrap
+                                        width: parent.width - 20
+                                    }
                                 }
                             }
                         }
@@ -752,39 +767,6 @@ ApplicationWindow
                             text: Translator.language === "en" ? "Change language to Russian" : "Изменить язык на английский"
                             onClicked: Translator.language = Translator.language === "en" ? "ru" : "en"
                         }
-                        Flow 
-                        {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 160
-                            spacing: 6
-
-                            Repeater 
-                            {
-                                model: ThingModel.listOfThingies
-
-                                delegate: Rectangle 
-                                {
-                                    width: tagLabel.implicitWidth + 24
-                                    height: 30
-                                    radius: 15
-                                    color: Theme.fieldBackground
-                                    border.color: Theme.borderColor
-                                    border.width: 1
-
-                                    Behavior on color { ColorAnimation { duration: 100 } }
-
-                                    Text 
-                                    {
-                                        id: tagLabel
-
-                                        anchors.centerIn: parent
-                                        text: model.name
-                                        color: Theme.textColor
-                                    }
-                                }
-                            }
-                        }
-
                         Example.ThemedButton 
                         {
                             text: qsTr("Применить")
@@ -796,7 +778,6 @@ ApplicationWindow
                         }
                     }
                 }
-
                 Dialog 
                 {
                     id: help_dialog
@@ -870,15 +851,15 @@ ApplicationWindow
                                         anchors.leftMargin: 12
                                         spacing: 8
 
-                                    Text 
-                                    {
-                                        text: "test topic"
-                                        color: Theme.textColor
-                                        elide: Text.ElideRight
-                                        verticalAlignment: Text.AlignVCenter
-                                        anchors.verticalCenter: topic.verticalCenter
-                                        width: topic.width
-                                    }
+                                        Text 
+                                        {
+                                            text: "test topic"
+                                            color: Theme.textColor
+                                            elide: Text.ElideRight
+                                            verticalAlignment: Text.AlignVCenter
+                                            anchors.verticalCenter: parent.verticalCenter //anchors.verticalCenter: topic.verticalCenter
+                                            width: topic.width
+                                        }
                                     }
 
                                     MouseArea 
@@ -912,6 +893,45 @@ ApplicationWindow
                         {
                             text: qsTr("Закрыть")
                             onClicked: win.help_mode = false
+                        }
+                    }
+                }
+                Dialog 
+                {
+                    id: file_find_error_dialog
+
+                    visible: win.file_find_error_mode
+                    modal: false      
+                    closePolicy: !Popup.CloseOnPressOutside | !Popup.CloseOnEscape
+                    anchors.centerIn: parent
+                    width: win.width - 8
+                    height: win.height - 8
+
+                    background: Rectangle 
+                    {
+                        anchors.fill: parent
+                        radius: 4
+                        color: Theme.fieldBackground
+                        border.width: 1
+                        border.color: Theme.borderColor
+                    }
+
+                    onClosed: win.file_find_error_mode = false
+
+                    contentItem: ColumnLayout 
+                    {
+                        spacing: 10
+
+                        Text 
+                        {
+                            text: qsTr("Ошибка поиска файла")
+                            font.pixelSize: 18
+                            color: Theme.textColor
+                        }
+                        Example.ThemedButton 
+                        {
+                            text: qsTr("Закрыть")
+                            onClicked: win.file_find_error_mode = false
                         }
                     }
                 }

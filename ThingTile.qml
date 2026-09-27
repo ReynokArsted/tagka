@@ -15,11 +15,6 @@ Rectangle {
     signal rightClicked
 
     border.width: 4
-    // border.color: borderHighlight ? highlightBorderColor : normalBorderColor
-    // anchors {
-    //     horizontalCenter: parent.horizontalCenter
-    //     verticalCenter: parent.verticalCenter
-    // }
     border.color: Qt.alpha(root.color, borderHighlight ? 0.9 : 0.4)
 
     anchors {

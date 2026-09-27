@@ -36,10 +36,9 @@ ColumnLayout
 
     Label 
     {
-        //text: qsTr("Вводи метки:")
         color: Theme.textColor
         font.pixelSize: 14
-        anchors.horizontalCenter: parent.horizontalCenter
+        Layout.alignment: Qt.AlignHCenter
     }
 
     SearchLine 
@@ -59,7 +58,7 @@ ColumnLayout
         text: qsTr("Текущий ввод: %1").arg(tagInput.text)
         font.pixelSize: 12
         color: "gray"
-        anchors.horizontalCenter: parent.horizontalCenter
+        Layout.alignment: Qt.AlignHCenter
     }
 
     ThingGrid 

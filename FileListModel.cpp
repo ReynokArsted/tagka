@@ -37,7 +37,7 @@ QVariantList FileListModel::getCandidates(QString dirPath, QString prefix)
         out.append(m);
     }
 
-    qDebug() << "cand_list:" << out;
+    //qDebug() << "-> cand_list:" << out;
     return out;
 }
 
@@ -76,7 +76,7 @@ QSet<QString> get_tag_set(QString tg)
     while (query.next())
         tag_set.insert(query.value(0).toString());
 
-    qDebug() << "tag_set:" << tag_set;
+    qDebug() << "-> tag_set:" << tag_set;
     return tag_set;
 }
 
@@ -90,7 +90,7 @@ QSet<QString> subtract_op (QString tg1, QString tg2)
 
 QSet<QString> subtract_op (QSet<QString> set1, QString tg2)
 {
-    qDebug() << "tag_set:" << set1;
+    qDebug() << "-> tag_set:" << set1;
     QSet<QString> set2 = get_tag_set(tg2);
     QSet<QString> result = set1.subtract(set2);
     return result;
@@ -99,15 +99,15 @@ QSet<QString> subtract_op (QSet<QString> set1, QString tg2)
 QSet<QString> subtract_op (QString tg1, QSet<QString> set2)
 {
     QSet<QString> set1 = get_tag_set(tg1);
-    qDebug() << "tag_set:" << set2;
+    qDebug() << "-> tag_set:" << set2;
     QSet<QString> result = set1.subtract(set2);
     return result;
 }
 
 QSet<QString> subtract_op (QSet<QString> set1, QSet<QString> set2)
 {
-    qDebug() << "tag_set:" << set1;
-    qDebug() << "tag_set:" << set2;
+    qDebug() << "-> tag_set:" << set1;
+    qDebug() << "-> tag_set:" << set2;
     QSet<QString> result = set1.subtract(set2);
     return result;
 }
@@ -122,7 +122,7 @@ QSet<QString> unite_op (QString tg1, QString tg2)
 
 QSet<QString> unite_op (QSet<QString> set1, QString tg2)
 {
-    qDebug() << "tag_set:" << set1;
+    qDebug() << "-> tag_set:" << set1;
     QSet<QString> set2 = get_tag_set(tg2);
     QSet<QString> result = set1.unite(set2);
     return result;
@@ -131,15 +131,15 @@ QSet<QString> unite_op (QSet<QString> set1, QString tg2)
 QSet<QString> unite_op (QString tg1, QSet<QString> set2)
 {
     QSet<QString> set1 = get_tag_set(tg1);
-    qDebug() << "tag_set:" << set2;
+    qDebug() << "-> tag_set:" << set2;
     QSet<QString> result = set1.unite(set2);
     return result;
 }
 
 QSet<QString> unite_op (QSet<QString> set1, QSet<QString> set2)
 {
-    qDebug() << "tag_set:" << set1;
-    qDebug() << "tag_set:" << set2;
+    qDebug() << "-> tag_set:" << set1;
+    qDebug() << "-> tag_set:" << set2;
     QSet<QString> result = set1.unite(set2);
     return result;
 }
@@ -154,7 +154,7 @@ QSet<QString> intersect_op (QString tg1, QString tg2)
 
 QSet<QString> intersect_op (QSet<QString> set1, QString tg2)
 {
-    qDebug() << "tag_set:" << set1;
+    qDebug() << "-> tag_set:" << set1;
     QSet<QString> set2 = get_tag_set(tg2);
     QSet<QString> result = set1.intersect(set2);
     return result;
@@ -163,50 +163,21 @@ QSet<QString> intersect_op (QSet<QString> set1, QString tg2)
 QSet<QString> intersect_op (QString tg1, QSet<QString> set2)
 {
     QSet<QString> set1 = get_tag_set(tg1);
-    qDebug() << "tag_set:" << set2;
+    qDebug() << "-> tag_set:" << set2;
     QSet<QString> result = set1.intersect(set2);
     return result;
 }
 
 QSet<QString> intersect_op (QSet<QString> set1, QSet<QString> set2)
 {
-    qDebug() << "tag_set:" << set1;
-    qDebug() << "tag_set:" << set2;
+    qDebug() << "-> tag_set:" << set1;
+    qDebug() << "-> tag_set:" << set2;
     QSet<QString> result = set1.intersect(set2);
     return result;
 }
 
 FileListModel::FileListModel(QObject* parent)
-    : QAbstractListModel(parent) {}
-
-int FileListModel::rowCount(const QModelIndex& parent) const 
-{
-    if (parent.isValid()) return 0;
-    return m_items.size();
-}
-
-QVariant FileListModel::data(const QModelIndex& index, int role) const 
-{
-    if (!index.isValid() || index.row() < 0 || index.row() >= m_items.size()) return {};
-
-    const auto &it = m_items[index.row()];
-    switch (role) {
-        case NameRole: return it.name;
-        case PathRole: return it.path;
-        case IsDirRole: return it.isDir;
-        default: return {};
-    }
-}
-
-QHash<int, QByteArray> FileListModel::roleNames() const 
-{
-    return 
-    {
-        { NameRole, "name" },
-        { PathRole, "path" },
-        { IsDirRole, "isDir" }
-    };
-}
+    : QObject(parent) {}
 
 void FileListModel::openWith(const QString &filePath, QQuickWindow *window)
 {
@@ -292,21 +263,21 @@ bool check_tag(QString tag)
 
 void FileListModel::showCandidates(const QVariantList &candidates)
 {
-    beginResetModel();
-    m_items.clear();
+    QVariantList newItems;
     for (int i = 0; i < candidates.length(); i++) 
     {
         QString q_path = candidates[i].toMap().value("path").toString();
-        qDebug() << "cand:" << q_path;
+        qDebug() << "-> cand:" << q_path;
+
         QFileInfo info(q_path);
-        Item query_file;
-        query_file.path = q_path;
-        query_file.name = info.fileName();
-        query_file.path = info.absoluteFilePath();
-        query_file.isDir = info.isDir();
-        m_items.push_back(std::move(query_file));
+        QVariantMap m;
+        m["name"]  = info.fileName();
+        m["path"]  = info.absoluteFilePath();
+        m["isDir"] = info.isDir();
+        newItems.append(m);
     }
-    endResetModel();
+    m_items = newItems;
+    emit itemsChanged();
 }
 
 void FileListModel::setFolder(const QString &folderPath) 
@@ -364,14 +335,13 @@ void FileListModel::setFolder(const QString &folderPath)
     if (brace_balance_was_lost) 
     {
         qDebug() << "ERROR: the " + QString::number(current_brace_index + 1) + "th brace wasn't closed";
-        beginResetModel();
-        m_items.clear();
-        endResetModel();
+        m_items = QVariantList();
+        emit itemsChanged();
         return;
     }
 
     QStringList temp_list = temp.split(' ');
-    qDebug() << "temp_list =" << temp_list;
+    qDebug() << "-> temp_list =" << temp_list;
 
     // check operands count 
     bool other_operand_wasnt_found = false;
@@ -390,15 +360,14 @@ void FileListModel::setFolder(const QString &folderPath)
     if (other_operand_wasnt_found)
     {
         qDebug() << "ERROR: one operand wasn't found";
-        beginResetModel();
-        m_items.clear();
-        endResetModel();
+        m_items = QVariantList();
+        emit itemsChanged();
         return;
     }
 
-    qDebug() << "res:" << temp_list;
-    qDebug() << "operation_count:" << operation_count;
-    qDebug() << "brace_pair_count:" << brace_pair_count;
+    qDebug() << "-> res:" << temp_list;
+    qDebug() << "-> operation_count:" << operation_count;
+    qDebug() << "-> brace_pair_count:" << brace_pair_count;
 
     // delete superfluous braces
     for (int i = 1; i < temp_list.length() - 1; i++)
@@ -425,7 +394,7 @@ void FileListModel::setFolder(const QString &folderPath)
         }
     }
     temp_list.removeAll(" ");
-    qDebug() << "brace removing result:" << temp_list;
+    qDebug() << "-> brace removing result:" << temp_list;
 
     int last_tag_index = 0;
     bool path_indicator = false;
@@ -453,13 +422,12 @@ void FileListModel::setFolder(const QString &folderPath)
     if (error_was_found)
     {
         qDebug() << "ERROR: seq has paths between tags";
-        beginResetModel();
-        m_items.clear();
-        endResetModel();
+        m_items = QVariantList();
+        emit itemsChanged();
         return;
     }
-    qDebug() << "result temp_list:" << temp_list;
-    qDebug() << "last_tag_index =" << last_tag_index;
+    qDebug() << "-> result temp_list:" << temp_list;
+    qDebug() << "-> last_tag_index =" << last_tag_index;
 
     QVector<QVector<int>> operations_list;
     bool in_brace = false; 
@@ -487,23 +455,18 @@ void FileListModel::setFolder(const QString &folderPath)
             }
             else 
             {
-                //operations_list[current_brace_pair].push_back(i);
-
-                // #iron + #cat * #electronics + #chest
-                // #iron + #cat * #electronics \ #chest
-
                 // take operation order
                 if (temp_list[i] == "\\" && temp_list[i - 1] == "##")
                 {
                     qDebug() << "##\\";
                     operations_list[current_brace_pair].push_back(i);
-                    qDebug() << "res:" << operations_list[current_brace_pair];
+                    qDebug() << "-> res:" << operations_list[current_brace_pair];
                 }
                 else if (temp_list[i] == "\\" && temp_list[i - 1] != "##")
                 {
                     qDebug() << "\\";
                     operations_list[current_brace_pair].push_front(i);
-                    qDebug() << "res:" << operations_list[current_brace_pair];
+                    qDebug() << "-> res:" << operations_list[current_brace_pair];
                 }
                 else if (temp_list[i] == "*")
                 {
@@ -512,7 +475,7 @@ void FileListModel::setFolder(const QString &folderPath)
                     bool jump_flag = false;
                     while (j >= 0 && !jump_flag)
                     { 
-                        qDebug() << "in * while";
+                        qDebug() << "-> in * while";
                         if (temp_list[operations_list[current_brace_pair][j]] == "+" || 
                             (temp_list[operations_list[current_brace_pair][j]] == "\\" && 
                                 temp_list[operations_list[current_brace_pair][j] - 1] != "##"))
@@ -521,12 +484,12 @@ void FileListModel::setFolder(const QString &folderPath)
                             if (j != (operations_list[current_brace_pair].length() - 1))
                             {
                                 operations_list[current_brace_pair].insert(j + 1, i);
-                                qDebug() << "res:" << operations_list[current_brace_pair];
+                                qDebug() << "-> res:" << operations_list[current_brace_pair];
                             }
                             else
                             { 
                                 operations_list[current_brace_pair].push_back(i);
-                                qDebug() << "res:" << operations_list[current_brace_pair];
+                                qDebug() << "-> res:" << operations_list[current_brace_pair];
                             }
                         }
                         j--;
@@ -534,19 +497,19 @@ void FileListModel::setFolder(const QString &folderPath)
                     if (j < 0 && !jump_flag) 
                     {
                         operations_list[current_brace_pair].push_front(i);
-                        qDebug() << "res:" << operations_list[current_brace_pair];
+                        qDebug() << "-> res:" << operations_list[current_brace_pair];
                     }
                 }
                 else if (temp_list[i] == "+")
                 {
                     qDebug() << "+";
                     int j = operations_list[current_brace_pair].length() - 1;
-                    qDebug() << "start j =" << j;
-                    qDebug() << "start current_brace_pair =" << current_brace_pair;
+                    qDebug() << "-> start j =" << j;
+                    qDebug() << "-> start current_brace_pair =" << current_brace_pair;
                     bool jump_flag = false;
                     while (j >= 0 && !jump_flag)
                     {
-                        qDebug() << "in + while";
+                        qDebug() << "-> in + while";
                         qDebug() << "->" << temp_list[operations_list[current_brace_pair][j]];
                         if (temp_list[operations_list[current_brace_pair][j]] == "\\" && 
                                 temp_list[operations_list[current_brace_pair][j] - 1] != "##")
@@ -555,12 +518,12 @@ void FileListModel::setFolder(const QString &folderPath)
                             if (j != (operations_list[current_brace_pair].length() - 1))
                             {
                                 operations_list[current_brace_pair].insert(j + 1, i);
-                                qDebug() << "res:" << operations_list[current_brace_pair];
+                                qDebug() << "-> res:" << operations_list[current_brace_pair];
                             }
                             else 
                             {
                                 operations_list[current_brace_pair].push_back(i);
-                                qDebug() << "res:" << operations_list[current_brace_pair];
+                                qDebug() << "-> res:" << operations_list[current_brace_pair];
                             }
                         }
                         j--;
@@ -568,20 +531,19 @@ void FileListModel::setFolder(const QString &folderPath)
                     if (j < 0 && !jump_flag) 
                     {
                         operations_list[current_brace_pair].push_front(i);
-                        qDebug() << "res:" << operations_list[current_brace_pair];
+                        qDebug() << "-> res:" << operations_list[current_brace_pair];
                     }
                 }
                 else 
                 {
-                    qDebug() << "else op";
+                    qDebug() << "-> else op";
                     operations_list[current_brace_pair].push_front(i);
-                    qDebug() << "res:" << operations_list[current_brace_pair];
+                    qDebug() << "-> res:" << operations_list[current_brace_pair];
                 }
             }
         }
     }
-    qDebug() << "operations_list:" << operations_list;
-    //take_order(&operations_list);
+    qDebug() << "-> operations_list:" << operations_list;
 
     QVector<QSet<QString>> results;
     int i = operations_list.length() - 1, j = -1;
@@ -590,14 +552,14 @@ void FileListModel::setFolder(const QString &folderPath)
         j = operations_list[i].length() - 1;
         while (j >= 0)
         {
-            qDebug() << "operation:" << temp_list[operations_list[i][j]];
+            qDebug() << "-> operation:" << temp_list[operations_list[i][j]];
             if (temp_list[operations_list[i][j]] == "+")
             {   
                 int k = 1, t = 1; 
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
-                qDebug() << "op1 =" << temp_list[operations_list[i][j] - k];
-                qDebug() << "op2 =" << temp_list[operations_list[i][j] + t];
+                qDebug() << "-> op1 =" << temp_list[operations_list[i][j] - k];
+                qDebug() << "-> op2 =" << temp_list[operations_list[i][j] + t];
 
                 QSet<QString> result;
                 if (!temp_list[operations_list[i][j] - k].contains("#") && 
@@ -623,7 +585,7 @@ void FileListModel::setFolder(const QString &folderPath)
                         temp_list[operations_list[i][j] - k], 
                         temp_list[operations_list[i][j] + t]);
                 }
-                qDebug() << "result:" << result;
+                qDebug() << "-> result:" << result;
 
                 QString index = QString::number(results.size());
                 results.push_back(result);
@@ -651,8 +613,8 @@ void FileListModel::setFolder(const QString &folderPath)
                 int k = 1, t = 1; 
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
-                qDebug() << "op1 =" << temp_list[operations_list[i][j] - k];
-                qDebug() << "op2 =" << temp_list[operations_list[i][j] + t];
+                qDebug() << "-> op1 =" << temp_list[operations_list[i][j] - k];
+                qDebug() << "-> op2 =" << temp_list[operations_list[i][j] + t];
 
                 QSet<QString> result;
                 if (!temp_list[operations_list[i][j] - k].contains("#") && 
@@ -678,7 +640,7 @@ void FileListModel::setFolder(const QString &folderPath)
                         temp_list[operations_list[i][j] - k], 
                         temp_list[operations_list[i][j] + t]);
                 }
-                qDebug() << "result:" << result;
+                qDebug() << "-> result:" << result;
 
                 QString index = QString::number(results.size());
                 results.push_back(result);
@@ -706,8 +668,8 @@ void FileListModel::setFolder(const QString &folderPath)
                 int k = 1, t = 1; 
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
-                qDebug() << "op1 =" << temp_list[operations_list[i][j] - k];
-                qDebug() << "op2 =" << temp_list[operations_list[i][j] + t];
+                qDebug() << "-> op1 =" << temp_list[operations_list[i][j] - k];
+                qDebug() << "-> op2 =" << temp_list[operations_list[i][j] + t];
 
                 QSet<QString> result;
                 if (!temp_list[operations_list[i][j] - k].contains("#") && 
@@ -735,7 +697,7 @@ void FileListModel::setFolder(const QString &folderPath)
                         temp_list[operations_list[i][j] + t]
                     );
                 }
-                qDebug() << "result:" << result;
+                qDebug() << "-> result:" << result;
                 results.push_back(result);
 
                 QString index = QString::number(results.size() - 1);
@@ -758,7 +720,7 @@ void FileListModel::setFolder(const QString &folderPath)
                     m++;
                 }
             }
-            qDebug() << "temp_list =" << temp_list;
+            qDebug() << "-> temp_list =" << temp_list;
             j--;
         }
         i--;
@@ -769,8 +731,7 @@ void FileListModel::setFolder(const QString &folderPath)
         QString temp = folderPath;
         temp.replace("#", "");
 
-        beginResetModel();
-        m_items.clear();
+        QVariantList newItems;
 
         if (results.isEmpty())
         {
@@ -792,40 +753,35 @@ void FileListModel::setFolder(const QString &folderPath)
 
             while (query.next()) 
             {
-                QString q_path = query.value(0).toString();
-                QFileInfo info(q_path);
-                Item query_file;
-                query_file.path = q_path;
-                query_file.name = info.fileName();
-                query_file.path = info.absoluteFilePath();
-                query_file.isDir = info.isDir();
-                m_items.push_back(std::move(query_file));
+                QFileInfo info(query.value(0).toString());
+                QVariantMap m;
+                m["name"]  = info.fileName();
+                m["path"]  = info.absoluteFilePath();
+                m["isDir"] = info.isDir();
+                newItems.append(m);
             }
         }
         else
         {
-            int i = 0;
-            while (i < results.last().size())
+            const auto paths = results.last().values();
+            for (const QString &path : paths)
             {
-                QFileInfo info(results.last().values().at(i));
-                Item query_file;
-                query_file.path = results.last().values().at(i);
-                query_file.name = info.fileName();
-                query_file.path = info.absoluteFilePath();
-                query_file.isDir = info.isDir();
-                m_items.push_back(std::move(query_file));
-                i++;
+                QFileInfo info(path);
+                QVariantMap m;
+                m["name"]  = info.fileName();
+                m["path"]  = info.absoluteFilePath();
+                m["isDir"] = info.isDir();
+                newItems.append(m);
             }
         }
-        endResetModel();
+        m_items = newItems;
+        emit itemsChanged();
     }
     else 
     {
         QDir dir(folderPath);
         if (!dir.exists()) return;
 
-        beginResetModel();
-        m_items.clear();
         m_folder = dir.absolutePath();
 
         QFileInfoList infos = dir.entryInfoList
@@ -834,17 +790,20 @@ void FileListModel::setFolder(const QString &folderPath)
             QDir::DirsFirst | QDir::Name
         );
 
-        for (const QFileInfo& fi : infos) 
+        QVariantList newItems;
+        for (const QFileInfo &fi : infos) 
         {
-            Item it;
-            it.name = fi.fileName();
-            it.path = fi.absoluteFilePath();
-            it.isDir = fi.isDir();
-            m_items.push_back(std::move(it));
+            QVariantMap m;
+            m["name"]  = fi.fileName();
+            m["path"]  = fi.absoluteFilePath();
+            m["isDir"] = fi.isDir();
+            newItems.append(m);
         }
-        endResetModel();
+        
+        m_items = newItems;
+        emit itemsChanged();
+        emit folderChanged();
     }
-    emit folderChanged();
 }
 
 QString FileListModel::parent_folder() const 
@@ -858,4 +817,59 @@ QString FileListModel::current_folder() const
 {
     QDir dir(m_folder);
     return dir.absolutePath();
+}
+
+QSet<int> FileListModel::tagIdsForFile(const QList<QString> &paths) const
+{
+    QSet<int> result;
+    if (paths.isEmpty()) return result;
+
+    QSqlDatabase db = QSqlDatabase::database("app_connection");
+    if (!db.isOpen()) 
+    {
+        qWarning() << "ERROR: database is not open";
+        return result;
+    }
+    QSqlQuery query(db);
+
+    QVector<QSet<int>> tags_ids_sets;
+    for (int i = 0; i < paths.length(); i++)
+    {
+        QSqlQuery query(db);
+        query.prepare
+        (
+            "SELECT tag_file.tag_id FROM tag_file "
+            "JOIN file ON file.id = tag_file.file_id "
+            "WHERE file.path = :path"
+        );
+        query.bindValue(":path", paths[i]);
+
+        if (!query.exec()) 
+        {
+            qWarning() << "ERROR: select tagIdsForFile failed with error" << query.lastError().text();
+            return result;
+        }
+
+        int set_ind = tags_ids_sets.isEmpty()? 0 : tags_ids_sets.length();
+        tags_ids_sets.push_back(QSet<int>{});
+        while (query.next())
+            tags_ids_sets[set_ind].insert(query.value(0).toInt());
+    }
+
+    if (tags_ids_sets.isEmpty()) return result;
+    int min_length = tags_ids_sets[0].count();
+    for (int i = 0; i < tags_ids_sets.length(); i++)
+    {
+        if (tags_ids_sets[i].count() < min_length)
+        {
+            min_length = tags_ids_sets[i].count();
+            tags_ids_sets.swapItemsAt(i, 0);
+        }
+    }
+
+    result = tags_ids_sets[0];
+    for (int i = 1; i < tags_ids_sets.count(); ++i)
+        result &= tags_ids_sets[i];
+
+    return result;
 }
