@@ -17,14 +17,14 @@ QByteArray UsnJournalMonitor::fileId128ToBytes(const FILE_ID_128 &id)
 QByteArray UsnJournalMonitor::fileId128ToBytes(DWORDLONG fileReference)
 {
     FILE_ID_128 id{};
-
-    memcpy(
+    memcpy
+    (
         id.Identifier,
         &fileReference,
         sizeof(fileReference)
     );
-
-    return QByteArray(
+    return QByteArray
+    (
         reinterpret_cast<const char*>(id.Identifier),
         sizeof(id.Identifier)
     );
@@ -40,7 +40,8 @@ FILE_ID_128 UsnJournalMonitor::bytesToFileId128(const QByteArray &bytes)
 
 QByteArray UsnJournalMonitor::currentSystemIdForPath(const QString &path)
 {
-    HANDLE h = CreateFileW(
+    HANDLE h = CreateFileW
+    (
         reinterpret_cast<LPCWSTR>(path.utf16()),
         0,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -81,7 +82,12 @@ QString UsnJournalMonitor::getPathByHandle(HANDLE handle)
     );
     if (result == 0) return {};
 
-    return QString::fromWCharArray(buffer.data(), static_cast<int>(result));
+    QString p = QString::fromWCharArray(buffer.data(), static_cast<int>(result));
+    if (p.startsWith(QStringLiteral("\\\\?\\UNC\\")))
+        p = QStringLiteral("\\\\") + p.mid(8);
+    else if (p.startsWith(QStringLiteral("\\\\?\\")))
+        p = p.mid(4);
+    return QDir::fromNativeSeparators(p);
 }
 
 HANDLE UsnJournalMonitor::openVolumeHandle(const QString &guidPath)
@@ -455,6 +461,7 @@ void UsnJournalMonitor::updateFilePath(const QByteArray &systemId, const QString
     q.bindValue(":sid", QString(systemId.toHex()));
     if (!q.exec())
         qWarning() << "ERROR: update file path failed:" << q.lastError().text();
+    qDebug() << "-> update rows:" << q.numRowsAffected();
 }
 
 void UsnJournalMonitor::updateFileIdentity
@@ -514,6 +521,19 @@ bool UsnJournalMonitor::addWatch(const QByteArray &systemId, const QString &path
     return true;
 }
 
+void UsnJournalMonitor::onNewFileAdded(const QString &path)
+{
+    // const int volumeId = volumeIdForPath(path);
+    // if (volumeId < 0)
+    // {
+    //     qWarning() << "WARN: volume not found for" << path;
+    //     return;
+    // }
+    // if (!addFile(path, volumeId))
+    if (!addFile(path, 1))
+        qWarning() << "WARN: cannot watch" << path;
+}
+
 void UsnJournalMonitor::processRecord(const USN_RECORD *record, int volumeId)
 {
     const QByteArray fileId = fileId128ToBytes(static_cast<DWORDLONG>(record->FileReferenceNumber));
@@ -530,44 +550,37 @@ void UsnJournalMonitor::processRecord(const USN_RECORD *record, int volumeId)
               << "reason =" << Qt::hex << record->Reason << "name =" << name;
 
     if (record->Reason & USN_REASON_RENAME_OLD_NAME)
-    {
-        PendingRename rn;
-        rn.oldName = name;
-        rn.oldParentId = fileId128ToBytes(static_cast<DWORDLONG>(record->ParentFileReferenceNumber));
-        pendingRenames_.insert(fileId, rn);
         return;
-    }
 
     if (record->Reason & USN_REASON_RENAME_NEW_NAME)
     {
-        auto rIt = pendingRenames_.find(fileId);
-        if (rIt == pendingRenames_.end())
-        {
-            qDebug() << "ERROR: RENAME_NEW_NAME without old name";
-            return;
-        }
-
         const QString oldPath = it->path;
         const QString newPath = getPathByHandle(it->handle);
+        qDebug() << "-> rename new:" << oldPath << "->" << newPath;
+        if (newPath.isEmpty() || newPath == oldPath) return;
 
-        if (!newPath.isEmpty())
+        it->path = newPath;
+        QMetaObject::invokeMethod(this, [this, fileId, oldPath, newPath]()
         {
+            qDebug() << "-> apply rename" << newPath;
             updateFilePath(fileId, newPath);
-            it->path = newPath;
-        }
-        pendingRenames_.erase(rIt);
+            emit filePathChanged(oldPath, newPath);
+        }, Qt::QueuedConnection);
         return;
     }
 
     if (record->Reason & USN_REASON_FILE_DELETE)
     {
         const QString path = it->path;
-        deleteFileRecord(fileId);
-        emit fileDeleted(path, fileId);
-
         CloseHandle(it->handle);
         watched_.erase(it);
         pendingRenames_.remove(fileId);
+
+        QMetaObject::invokeMethod(this, [this, fileId, path]()
+        {
+            deleteFileRecord(fileId);
+            emit fileDeleted(path, fileId);
+        }, Qt::QueuedConnection);
     }
 }
 
@@ -591,8 +604,10 @@ void UsnJournalMonitor::run()
 
             READ_USN_JOURNAL_DATA readData{};
             readData.StartUsn = vol.lastUsn ? vol.lastUsn : journal.NextUsn;
-            readData.ReasonMask = USN_REASON_RENAME_OLD_NAME |
-                USN_REASON_RENAME_NEW_NAME | USN_REASON_FILE_DELETE;
+            readData.ReasonMask = 
+                USN_REASON_RENAME_OLD_NAME |
+                USN_REASON_RENAME_NEW_NAME | 
+                USN_REASON_FILE_DELETE;
             readData.ReturnOnlyOnClose = FALSE;
             readData.Timeout = 0;
             readData.BytesToWaitFor = 0;

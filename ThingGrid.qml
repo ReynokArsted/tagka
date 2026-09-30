@@ -12,9 +12,12 @@ Item
 
     property bool highlightBorders: false
     property bool isTagSelectionMode: false
-    property QtObject hub
     property var selectedTagIds: []
     property Item dragOverlay
+
+    signal tagSelected(int id, string name)
+    signal tagFilesRequested(int id, string name)
+    signal tagDeleteRequested(int id, string name)
 
     width: 600
     height: 200
@@ -108,7 +111,7 @@ Item
 
                         onClicked: 
                         {
-                            tag_flow.hub.selected(delegateRoot.id, delegateRoot.name)
+                            tag_flow.tagSelected(delegateRoot.id, delegateRoot.name)
                             if (delegateRoot.index !== 0)
                                 ThingModel.listOfThingies.move(delegateRoot.index, 0)
                         }
@@ -125,7 +128,7 @@ Item
 
                                 onTriggered: 
                                 {
-                                    tag_flow.hub.tagFilesRequested(delegateRoot.id, delegateRoot.name)
+                                    tag_flow.tagFilesRequested(delegateRoot.id, delegateRoot.name)
                                     if (delegateRoot.index !== 0)
                                         ThingModel.listOfThingies.move(delegateRoot.index, 0)
                                 }
@@ -137,7 +140,7 @@ Item
 
                                 onTriggered: 
                                 {
-                                    tag_flow.hub.tagDeleteRequested(delegateRoot.id, delegateRoot.name)
+                                    tag_flow.tagDeleteRequested(delegateRoot.id, delegateRoot.name)
                                 }
                             }
                         }
