@@ -35,16 +35,16 @@ int main(int argc, char *argv[])
     QSqlDatabase db = QSqlDatabase::database("app_connection");
  
     UsnJournalMonitor monitor;
-    FileListModel fileListModel;
+    //FileListModel fileListModel;
     ThingModel thingModel;
 
-    // QObject::connect
-    // (
-    //     thingModel.listOfThingies(),
-    //     &ThingieListModel::newFileAdded,
-    //     &monitor,
-    //     &UsnJournalMonitor::onNewFileAdded
-    // );
+    QObject::connect
+    (
+        thingModel.listOfThingies(),
+        &ThingieListModel::newFileAdded,
+        &monitor,
+        &UsnJournalMonitor::onNewFileAdded
+    );
     QObject::connect
     (
         &monitor,
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("Translator", &translator);
     engine.rootContext()->setContextProperty("DataBaseModule", &db_module);
     engine.rootContext()->setContextProperty("ThingModel", &thingModel);
-    engine.rootContext()->setContextProperty("FileListModel", &fileListModel);
+    //engine.rootContext()->setContextProperty("FileListModel", &fileListModel);
     engine.rootContext()->setContextProperty("UsnJournalMonitor", &monitor);
 
     qmlRegisterType<FileListModel>("untitled.files", 1, 0, "FileListModel");

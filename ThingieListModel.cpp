@@ -133,7 +133,7 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
                 FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                 nullptr,
                 OPEN_EXISTING,
-                0,
+                FILE_FLAG_BACKUP_SEMANTICS,
                 nullptr
             );
 
@@ -171,7 +171,8 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
             QSqlQuery insertFile(db);
             insertFile.prepare("INSERT INTO file(path, system_id, volume_id) VALUES(:path, :system_id, :volume_id)");
             insertFile.bindValue(":path", paths[i]);
-            insertFile.bindValue(":system_id", idBytes.toHex());
+            //insertFile.bindValue(":system_id", idBytes.toHex());
+            insertFile.bindValue(":system_id", QString::fromLatin1(idBytes.toHex()));
             insertFile.bindValue(":volume_id", 1); ///
             if (!insertFile.exec()) 
             {

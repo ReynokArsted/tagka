@@ -22,6 +22,10 @@ public:
 
 signals:
     void fileDeleted(const QString &path, const QByteArray &systemId);
+    void filePathChanged(const QString &oldPath, const QString &newPath);
+
+public slots:     
+    void onNewFileAdded(const QString &path);
 
 protected:
     void run() override;

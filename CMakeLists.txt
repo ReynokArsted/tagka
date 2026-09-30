@@ -31,11 +31,14 @@ qt_add_qml_module(appuntitled
         ThemedButton.qml 
         ThingGrid.qml 
         ThingTile.qml
-        SignalHub.qml
         TopBar.qml
         BottomBar.qml
         TagPanel.qml
         SearchLine.qml
+        FilePanel.qml
+        SettingsDialog.qml
+        HelpDialog.qml
+        ErrorDialog.qml
     SOURCES 
         Thingie.h Thingie.cpp 
         ThingieListModel.h ThingieListModel.cpp 
@@ -43,6 +46,9 @@ qt_add_qml_module(appuntitled
         FileListModel.h FileListModel.cpp
         DataBaseModule.h DataBaseModule.cpp
         UsnJournalMonitor.h UsnJournalMonitor.cpp
+        # RequestProcessor.h RequestProcessor.cpp
+        # PathsProcessor.h PathsProcessor.cpp
+        # TagsProcessor.h TagsProcessor.cpp
 )
 
 set_target_properties(appuntitled PROPERTIES
