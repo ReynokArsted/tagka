@@ -1,20 +1,33 @@
 #pragma once
-#include <QObject>
 
-#include "TagsProcessor.h"
+#include <QObject>
+#include <QString>
+#include <QtQml/qqmlregistration.h>
+
+#include "FileList.h"
 #include "PathsProcessor.h"
+#include "TagsProcessor.h"
 
 class RequestProcessor : public QObject
 {
     Q_OBJECT
-    // Q_PROPERTY(PathsProcessor *paths READ paths CONSTANT)
-    // Q_PROPERTY(TagsProcessor  *tags  READ tags  CONSTANT)
+    QML_ELEMENT
+
+    Q_PROPERTY(FileList  *files READ files CONSTANT)
+    Q_PROPERTY(PathsProcessor *paths READ paths CONSTANT)
+    Q_PROPERTY(TagsProcessor  *tags  READ tags  CONSTANT)
+
 public:
     explicit RequestProcessor(QObject *parent = nullptr);
 
-    void process_request(const QString &request);
+    FileList  *files() const { return m_files; }
+    PathsProcessor *paths() const { return m_paths; }
+    TagsProcessor  *tags()  const { return m_tags; }
+
+    Q_INVOKABLE void setQuery(const QString &input);
 
 private:
-    TagsProcessor *tp;
-    PathsProcessor *pp;
+    FileList  *m_files;
+    PathsProcessor *m_paths;
+    TagsProcessor  *m_tags;
 };

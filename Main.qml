@@ -166,13 +166,14 @@ ApplicationWindow
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    FileListModel { id: fileModel }
+                    System { id: system }
+                    RequestProcessor { id: search }
 
                     TagPanel 
                     {
                         id: tag_panel
 
-                        fileModel: fileModel
+                        search: search;
                         thingModel: ThingModel.listOfThingies
                         dragOverlay: drag_overlay
 
@@ -195,14 +196,25 @@ ApplicationWindow
                         Layout.rightMargin: 6
                         Layout.leftMargin: 6
 
-                        fileModel: fileModel
+                        //fileModel: fileModel
                         tagModel: ThingModel.listOfThingies
 
                         renameMode: win.renameMode
                         editingPath: win.editingPath
                         editingName: win.editingName
-
-                        onFolderOpened: (path) => tag_panel.tagInput.text = path
+///
+                        files: search.files
+                        tagQuery: search.tags
+                        onOpenFileRequested: (path) => system.openFile(path, win)
+                        onOpenWithRequested: (path) => system.openWith(path, win)
+///
+                        ///onFolderOpened: (path) => tag_panel.tagInput.text = path
+                        onFolderOpened: (path) =>
+                        {
+                            tag_panel.tagInput.text = path
+                            search.setQuery(path)            
+                        }
+///
                         onTagRequested: (paths, name) => tag_panel.startTagging(paths, name)
                         onRenameRequested: (path, name) => win.startRename(path, name)
                         onRenameCommitted: (newName) => win.commitRename(newName)
