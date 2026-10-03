@@ -48,7 +48,7 @@ QString FileListModel::normalizeDirPath(const QString& s)
     return t;
 }
 
-QSet<QString> get_tag_set(QString tg)
+inline QSet<QString> get_tag_set(QString tg)
 {
     QSqlDatabase db = QSqlDatabase::database("app_connection");
     if (!db.isOpen()) 
@@ -80,7 +80,7 @@ QSet<QString> get_tag_set(QString tg)
     return tag_set;
 }
 
-QSet<QString> subtract_op (QString tg1, QString tg2)
+inline QSet<QString> subtract_op (QString tg1, QString tg2)
 {       
     QSet<QString> set1 = get_tag_set(tg1);
     QSet<QString> set2 = get_tag_set(tg2);
@@ -88,7 +88,7 @@ QSet<QString> subtract_op (QString tg1, QString tg2)
     return result;
 }
 
-QSet<QString> subtract_op (QSet<QString> set1, QString tg2)
+inline QSet<QString> subtract_op (QSet<QString> set1, QString tg2)
 {
     qDebug() << "-> tag_set:" << set1;
     QSet<QString> set2 = get_tag_set(tg2);
@@ -96,7 +96,7 @@ QSet<QString> subtract_op (QSet<QString> set1, QString tg2)
     return result;
 }
 
-QSet<QString> subtract_op (QString tg1, QSet<QString> set2)
+inline QSet<QString> subtract_op (QString tg1, QSet<QString> set2)
 {
     QSet<QString> set1 = get_tag_set(tg1);
     qDebug() << "-> tag_set:" << set2;
@@ -104,7 +104,7 @@ QSet<QString> subtract_op (QString tg1, QSet<QString> set2)
     return result;
 }
 
-QSet<QString> subtract_op (QSet<QString> set1, QSet<QString> set2)
+inline QSet<QString> subtract_op (QSet<QString> set1, QSet<QString> set2)
 {
     qDebug() << "-> tag_set:" << set1;
     qDebug() << "-> tag_set:" << set2;
@@ -112,7 +112,7 @@ QSet<QString> subtract_op (QSet<QString> set1, QSet<QString> set2)
     return result;
 }
 
-QSet<QString> unite_op (QString tg1, QString tg2)
+inline QSet<QString> unite_op (QString tg1, QString tg2)
 {
     QSet<QString> set1 = get_tag_set(tg1);
     QSet<QString> set2 = get_tag_set(tg2);
@@ -120,7 +120,7 @@ QSet<QString> unite_op (QString tg1, QString tg2)
     return result;
 }
 
-QSet<QString> unite_op (QSet<QString> set1, QString tg2)
+inline QSet<QString> unite_op (QSet<QString> set1, QString tg2)
 {
     qDebug() << "-> tag_set:" << set1;
     QSet<QString> set2 = get_tag_set(tg2);
@@ -128,7 +128,7 @@ QSet<QString> unite_op (QSet<QString> set1, QString tg2)
     return result;
 }
 
-QSet<QString> unite_op (QString tg1, QSet<QString> set2)
+inline QSet<QString> unite_op (QString tg1, QSet<QString> set2)
 {
     QSet<QString> set1 = get_tag_set(tg1);
     qDebug() << "-> tag_set:" << set2;
@@ -136,7 +136,7 @@ QSet<QString> unite_op (QString tg1, QSet<QString> set2)
     return result;
 }
 
-QSet<QString> unite_op (QSet<QString> set1, QSet<QString> set2)
+inline QSet<QString> unite_op (QSet<QString> set1, QSet<QString> set2)
 {
     qDebug() << "-> tag_set:" << set1;
     qDebug() << "-> tag_set:" << set2;
@@ -144,7 +144,7 @@ QSet<QString> unite_op (QSet<QString> set1, QSet<QString> set2)
     return result;
 }
 
-QSet<QString> intersect_op (QString tg1, QString tg2)
+inline QSet<QString> intersect_op (QString tg1, QString tg2)
 {
     QSet<QString> set1 = get_tag_set(tg1);
     QSet<QString> set2 = get_tag_set(tg2);
@@ -152,7 +152,7 @@ QSet<QString> intersect_op (QString tg1, QString tg2)
     return result;
 }
 
-QSet<QString> intersect_op (QSet<QString> set1, QString tg2)
+inline QSet<QString> intersect_op (QSet<QString> set1, QString tg2)
 {
     qDebug() << "-> tag_set:" << set1;
     QSet<QString> set2 = get_tag_set(tg2);
@@ -160,7 +160,7 @@ QSet<QString> intersect_op (QSet<QString> set1, QString tg2)
     return result;
 }
 
-QSet<QString> intersect_op (QString tg1, QSet<QString> set2)
+inline QSet<QString> intersect_op (QString tg1, QSet<QString> set2)
 {
     QSet<QString> set1 = get_tag_set(tg1);
     qDebug() << "-> tag_set:" << set2;
@@ -168,7 +168,7 @@ QSet<QString> intersect_op (QString tg1, QSet<QString> set2)
     return result;
 }
 
-QSet<QString> intersect_op (QSet<QString> set1, QSet<QString> set2)
+inline QSet<QString> intersect_op (QSet<QString> set1, QSet<QString> set2)
 {
     qDebug() << "-> tag_set:" << set1;
     qDebug() << "-> tag_set:" << set2;
@@ -179,79 +179,7 @@ QSet<QString> intersect_op (QSet<QString> set1, QSet<QString> set2)
 FileListModel::FileListModel(QObject* parent)
     : QObject(parent) {}
 
-void FileListModel::openWith(const QString &filePath, QQuickWindow *window)
-{
-    QString localPath = filePath;
-    QUrl url(filePath);
-    if (url.isLocalFile()) localPath = url.toLocalFile();
-
-    localPath = QDir::toNativeSeparators(localPath);
-    QFileInfo fi(localPath);
-    if (!fi.exists()) return;
-
-    HWND hwndParent = nullptr;
-    if (window) hwndParent = reinterpret_cast<HWND>(window->winId());
-
-    std::wstring wpath = QDir::toNativeSeparators(fi.absoluteFilePath()).toStdWString();
-
-    SHELLEXECUTEINFOW sei = {};
-    sei.cbSize = sizeof(sei);
-    sei.fMask = SEE_MASK_INVOKEIDLIST | SEE_MASK_FLAG_NO_UI;
-    sei.hwnd = hwndParent;
-    sei.lpVerb = L"openas";
-    sei.lpFile = wpath.c_str();
-    sei.nShow = SW_SHOWNORMAL;
-
-    BOOL ok = ShellExecuteExW(&sei);
-    if (!ok) {
-        DWORD err = GetLastError();
-        qWarning() << "ERROR: ShellExecuteExW failed. error code =" << err;
-    }
-}
-
-void FileListModel::openFile(const QString &filePath, QQuickWindow *window)
-{
-    QString localPath = filePath;
-    QUrl url(filePath);
-    if (url.isLocalFile()) localPath = url.toLocalFile();
-
-    localPath = QDir::toNativeSeparators(localPath);
-    QFileInfo fi(localPath);
-    if (!fi.exists()) return;
-
-    std::wstring wpath = QDir::toNativeSeparators(fi.absoluteFilePath()).toStdWString();
-
-    SHELLEXECUTEINFOW sei = {};
-    sei.cbSize = sizeof(sei);
-    sei.fMask = SEE_MASK_INVOKEIDLIST | SEE_MASK_FLAG_NO_UI;
-    sei.lpVerb = L"open";
-    sei.lpFile = wpath.c_str();
-    sei.nShow = SW_SHOWNORMAL;
-
-    BOOL ok = ShellExecuteExW(&sei);
-
-    if (!ok) 
-    {
-        DWORD err = GetLastError();
-        if (err == 1155)
-        {
-            HWND hwndParent = nullptr;
-            if (window) hwndParent = reinterpret_cast<HWND>(window->winId());
-
-            SHELLEXECUTEINFOW sei = {};
-            sei.cbSize = sizeof(sei);
-            sei.fMask = SEE_MASK_INVOKEIDLIST | SEE_MASK_FLAG_NO_UI;
-            sei.hwnd = hwndParent;
-            sei.lpVerb = L"openas";
-            sei.lpFile = wpath.c_str();
-            sei.nShow = SW_SHOWNORMAL;
-            ShellExecuteExW(&sei);
-        }
-        else qWarning() << "ERROR: ShellExecuteExW failed. error code =" << err;
-    }
-}
-
-bool check_tag(QString tag)
+inline bool check_tag(QString tag)
 {
     if (tag.length() <= 1) return false;
     if (!tag.startsWith('#') || tag.count('#') >= 2) return false;
@@ -283,7 +211,7 @@ void FileListModel::setFolder(const QString &folderPath)
     QString temp = folderPath;
     temp = temp.simplified();
 
-    QString ref = "()*+\\";
+    QString ref = "()*\\+";
     int operation_count = 0;
 
     // check brace closing
@@ -303,6 +231,15 @@ void FileListModel::setFolder(const QString &folderPath)
             
             if (temp[i] == ')') 
             {
+                ///
+                if (brace_balances.isEmpty()) 
+                { 
+                    /* лишняя ')' */ 
+                    m_items = {}; 
+                    emit itemsChanged(); 
+                    return; 
+                }
+                ///
                 brace_balances[current_brace_index]--;
                 brace_pair_count++;
 
@@ -317,7 +254,7 @@ void FileListModel::setFolder(const QString &folderPath)
                 temp.insert(i, ' ');
                 i++;
             }
-            else if (i + 1 < temp.length() && temp[i + 1] != ' ') 
+            if (i + 1 < temp.length() && temp[i + 1] != ' ') 
                 temp.insert(i + 1, ' ');
         }
     }
@@ -342,19 +279,36 @@ void FileListModel::setFolder(const QString &folderPath)
     qDebug() << "-> temp_list =" << temp_list;
 
     // check operands count 
+    // bool other_operand_wasnt_found = false;
+    // for (int i = 0; i < temp_list.length(); i++) {
+    //     if (ref.contains(temp_list[i]) && temp_list[i] != "(" && temp_list[i] != ")") {
+    //         if (temp_list[i] == "\\" && ref.contains(temp_list[i+1]))
+    //             other_operand_wasnt_found = true;
+    //         else if (temp_list[i] != "\\" && 
+    //             (i == temp_list.length() - 1 || i == 0 || 
+    //             (ref.contains(temp_list[i-1]) && !(QString("()").contains(temp_list[i-1]))) || 
+    //             (ref.contains(temp_list[i+1]) && !(QString("()").contains(temp_list[i+1]))))
+    //         )
+    //             other_operand_wasnt_found = true;
+    //     }
+    // }
     bool other_operand_wasnt_found = false;
-    for (int i = 0; i < temp_list.length(); i++) {
-        if (ref.contains(temp_list[i]) && temp_list[i] != "(" && temp_list[i] != ")") {
-            if (temp_list[i] == "\\" && ref.contains(temp_list[i+1]))
-                other_operand_wasnt_found = true;
-            else if (temp_list[i] != "\\" && 
-                (i == temp_list.length() - 1 || i == 0 || 
-                (ref.contains(temp_list[i-1]) && !(QString("()").contains(temp_list[i-1]))) || 
-                (ref.contains(temp_list[i+1]) && !(QString("()").contains(temp_list[i+1]))))
-            )
-                other_operand_wasnt_found = true;
-        }
-    }
+const int n = temp_list.length();
+for (int i = 0; i < n; i++)
+{
+    const QString &t = temp_list[i];
+    if (t != "+" && t != "*" && t != "\\") continue;
+
+    const QString prev = i > 0     ? temp_list[i - 1] : QString();
+    const QString next = i + 1 < n ? temp_list[i + 1] : QString();
+
+    const bool next_ok = check_tag(next) || next == "(";
+    const bool prev_ok = check_tag(prev) || prev == ")";
+    const bool unary   = (t == "\\") && (i == 0 || prev == "(");
+
+    if (!next_ok || (!prev_ok && !unary))
+        other_operand_wasnt_found = true;
+}
     if (other_operand_wasnt_found)
     {
         qDebug() << "ERROR: one operand wasn't found";
@@ -403,16 +357,29 @@ void FileListModel::setFolder(const QString &folderPath)
         {
             //qDebug() << temp_list[i] << "is a tag or an operation";
             if (path_indicator) error_was_found = true;
-            if (temp_list[i] == "\\" && (i == 0 || temp_list[i - 1] == "(")) 
-            {
-                temp_list.insert(i == 0? 0 : i - 1, "##");
-                i++;
-            }
-            if (i + 1 != temp_list.length()  && temp_list[i].contains("#") && temp_list[i + 1].contains("#"))
-            {
-                temp_list.insert(i + 1, "*");
-                i++;
-            }
+            // if (temp_list[i] == "\\" && (i == 0 || temp_list[i - 1] == "(")) 
+            // {
+            //     temp_list.insert(i == 0? 0 : i - 1, "##");
+            //     i++;
+            // }
+            if (temp_list[i] == "\\" && (i == 0 || temp_list[i - 1] == "("))
+{
+    temp_list.insert(i, "##");  
+    i++;
+}
+            // if (i + 1 != temp_list.length()  && temp_list[i].contains("#") && temp_list[i + 1].contains("#"))
+            // {
+            //     temp_list.insert(i + 1, "*");
+            //     i++;
+            // }
+            auto operand_end   = [&](const QString &s) { return check_tag(s) || s == ")"; };
+auto operand_start = [&](const QString &s) { return check_tag(s) || s == "("; };
+
+if (i + 1 != temp_list.length() && operand_end(temp_list[i]) && operand_start(temp_list[i + 1]))
+{
+    temp_list.insert(i + 1, "*");
+    i++;
+}
             last_tag_index = i;
         }
         else path_indicator = true;
@@ -460,12 +427,6 @@ void FileListModel::setFolder(const QString &folderPath)
                     operations_list[current_brace_pair].push_back(i);
                     qDebug() << "-> res:" << operations_list[current_brace_pair];
                 }
-                else if (temp_list[i] == "\\" && temp_list[i - 1] != "##")
-                {
-                    qDebug() << "\\";
-                    operations_list[current_brace_pair].push_front(i);
-                    qDebug() << "-> res:" << operations_list[current_brace_pair];
-                }
                 else if (temp_list[i] == "*")
                 {
                     qDebug() << "*";
@@ -498,39 +459,20 @@ void FileListModel::setFolder(const QString &folderPath)
                         qDebug() << "-> res:" << operations_list[current_brace_pair];
                     }
                 }
+                else if (temp_list[i] == "\\" && temp_list[i - 1] != "##")
+                {
+                    qDebug() << "\\";
+                    int j = operations_list[current_brace_pair].length() - 1;
+                    while (j >= 0 && temp_list[operations_list[current_brace_pair][j]] != "+") j--;
+
+                    if (j < 0) operations_list[current_brace_pair].push_front(i);
+                    else operations_list[current_brace_pair].insert(j + 1, i);
+                }
                 else if (temp_list[i] == "+")
                 {
                     qDebug() << "+";
-                    int j = operations_list[current_brace_pair].length() - 1;
-                    qDebug() << "-> start j =" << j;
-                    qDebug() << "-> start current_brace_pair =" << current_brace_pair;
-                    bool jump_flag = false;
-                    while (j >= 0 && !jump_flag)
-                    {
-                        qDebug() << "-> in + while";
-                        qDebug() << "->" << temp_list[operations_list[current_brace_pair][j]];
-                        if (temp_list[operations_list[current_brace_pair][j]] == "\\" && 
-                                temp_list[operations_list[current_brace_pair][j] - 1] != "##")
-                        {
-                            jump_flag = true;
-                            if (j != (operations_list[current_brace_pair].length() - 1))
-                            {
-                                operations_list[current_brace_pair].insert(j + 1, i);
-                                qDebug() << "-> res:" << operations_list[current_brace_pair];
-                            }
-                            else 
-                            {
-                                operations_list[current_brace_pair].push_back(i);
-                                qDebug() << "-> res:" << operations_list[current_brace_pair];
-                            }
-                        }
-                        j--;
-                    }
-                    if (j < 0 && !jump_flag) 
-                    {
-                        operations_list[current_brace_pair].push_front(i);
-                        qDebug() << "-> res:" << operations_list[current_brace_pair];
-                    }
+                    operations_list[current_brace_pair].push_front(i);
+                    qDebug() << "-> res:" << operations_list[current_brace_pair];
                 }
                 else 
                 {
@@ -553,7 +495,13 @@ void FileListModel::setFolder(const QString &folderPath)
             qDebug() << "-> operation:" << temp_list[operations_list[i][j]];
             if (temp_list[operations_list[i][j]] == "+")
             {   
-                int k = 1, t = 1; 
+                int k = 1, t = 1;
+///
+auto pos = operations_list[i][j];
+while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
+while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
+if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChanged(); return; }
+///                
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
                 qDebug() << "-> op1 =" << temp_list[operations_list[i][j] - k];
@@ -608,7 +556,13 @@ void FileListModel::setFolder(const QString &folderPath)
             }
             else if (temp_list[operations_list[i][j]] == "*")
             {
-                int k = 1, t = 1; 
+                int k = 1, t = 1;
+                ///
+                auto pos = operations_list[i][j];
+while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
+while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
+if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChanged(); return; }
+///   
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
                 qDebug() << "-> op1 =" << temp_list[operations_list[i][j] - k];
@@ -664,6 +618,12 @@ void FileListModel::setFolder(const QString &folderPath)
             else if (temp_list[operations_list[i][j]] == "\\")
             {
                 int k = 1, t = 1; 
+                ///
+                auto pos = operations_list[i][j];
+while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
+while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
+if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChanged(); return; }
+///  
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
                 qDebug() << "-> op1 =" << temp_list[operations_list[i][j] - k];
@@ -739,10 +699,12 @@ void FileListModel::setFolder(const QString &folderPath)
                 qWarning() << "ERROR: database is not open";
                 return;
             }
+            QString tag_name;
+for (const QString &tok : temp_list)
+    if (check_tag(tok)) { tag_name = tok.mid(1); break; }
             QSqlQuery query(db);
-
             query.prepare("SELECT file.path FROM tag JOIN tag_file ON tag_file.tag_id = tag.id JOIN file ON file.id = tag_file.file_id WHERE tag.tag_name = :tag");
-            query.bindValue(":tag", temp);
+            query.bindValue(":tag", tag_name);
             if (!query.exec()) 
             {
                 qWarning() << "ERROR: select tag failed:" << query.lastError().text();
@@ -992,3 +954,17 @@ QString FileListModel::acceptFirstCandidate(const QString &input) const
     result.replace(QLatin1Char('/'), detectSep(input));
     return result;
 }
+
+///
+void FileListModel::setEntries(QVector<FileEntry> entries)
+{
+    const int oldCount = m_entries.size();
+ 
+    //beginResetModel();
+    m_entries = std::move(entries);
+    //endResetModel();
+ 
+    if (oldCount != m_entries.size())
+        emit countChanged();
+}
+///

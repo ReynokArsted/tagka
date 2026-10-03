@@ -10,10 +10,12 @@
 #include <objbase.h>
 
 #include "Translator.h"
-#include "FileListModel.h"
+//#include "FileListModel.h"
+#include "FileList.h"
 #include "DataBaseModule.h"
 #include "UsnJournalMonitor.h"
 #include "ThingModel.h"
+#include "System.h"
 
 void logHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
@@ -35,8 +37,9 @@ int main(int argc, char *argv[])
     QSqlDatabase db = QSqlDatabase::database("app_connection");
  
     UsnJournalMonitor monitor;
-    //FileListModel fileListModel;
+    FileList fileList;
     ThingModel thingModel;
+    System system;
 
     QObject::connect
     (
@@ -56,6 +59,12 @@ int main(int argc, char *argv[])
             qDebug() << "-> id:" << fileId << "deleted by" << path;
         }
     );
+    QObject::connect(&monitor, &UsnJournalMonitor::filePathChanged,
+                 &fileList, &FileList::renamePath);
+
+    QObject::connect(&monitor, &UsnJournalMonitor::fileDeleted,
+                 &fileList, [&fileList](const QString &path, const QByteArray &)
+                 { fileList.removePath(path); });
     monitor.start();
 
     //query.exec("create table file(id integer, path text, PRIMARY KEY(id AUTOINCREMENT))");
@@ -72,8 +81,9 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("ThingModel", &thingModel);
     //engine.rootContext()->setContextProperty("FileListModel", &fileListModel);
     engine.rootContext()->setContextProperty("UsnJournalMonitor", &monitor);
+    engine.rootContext()->setContextProperty("System", &system);
 
-    qmlRegisterType<FileListModel>("untitled.files", 1, 0, "FileListModel");
+    qmlRegisterType<FileList>("untitled.files", 1, 0, "FileList");
 
     QObject::connect(
         &engine,

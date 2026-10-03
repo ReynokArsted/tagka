@@ -5,15 +5,20 @@ import QtQuick.Layouts
 import QtQuick.Effects
 
 import untitled 1.0   
+import untitled.files 1.0
+import "./" as Example
 
 Rectangle
 {
     id: root
 
-    property var fileModel: null          // FileListModel
-    property var tagModel: null           // ThingModel.listOfThingies (colorForId, tagsAssigned)
+///
+    ///property var fileModel: null
+    property var files: null        // search.files
+    property var tagQuery: null     // search.tags
+///      
+    property var tagModel: null         
 
-    // Состояние переименования (владеет им внешний код)
     property bool renameMode: false
     property string editingPath: ""
     property string editingName: ""
@@ -28,6 +33,28 @@ Rectangle
     signal deleteTagsRequested(var paths)
     signal deleteRequested(var paths)
 
+///
+    signal openFileRequested(string path)
+    signal openWithRequested(string path)
+///
+    //FileListModel { id: files }
+    System { id: system }
+
+    Connections
+{
+    target: UsnJournalMonitor
+
+    function onFilePathChanged(oldPath, newPath)
+    {
+        if (root.files) root.files.renamePath(oldPath, newPath)
+    }
+
+    function onFileDeleted(path, systemId)
+    {
+        if (root.files) root.files.removePath(path)
+    }
+}
+
     function clearSelection()
     {
         selectedFiles = []
@@ -35,8 +62,6 @@ Rectangle
 
     function openFolder(p)
     {
-        if (fileModel)
-            fileModel.setFolder(p)
         folderOpened(p)
     }
 
@@ -59,10 +84,18 @@ Rectangle
         selectedFiles = [p]
     }
 
+    // function openItem(p, dir)
+    // {
+    //     if (dir) openFolder(p)
+    //     // else fileModel.openFile(p, root.Window.window)
+    //     else system.openFile(p, root.Window.window)
+    //     openFileRequested(p)
+    // }
+
     function openItem(p, dir)
     {
-        if (dir) openFolder(p)
-        else fileModel.openFile(p, root.Window.window)
+        if (dir) openFolder(p + "/")
+        else system.openFile(p, root.Window.window)
     }
 
     radius: 10
@@ -112,16 +145,25 @@ Rectangle
         MenuItem
         {
             text: qsTr("Открыть с помощью ...")
+            // onTriggered:
+            // {
+            //     if (single_selection_menu.currentIsDir)
+            //         root.openFolder(single_selection_menu.currentPath)
+            //     else
+            //         // root.fileModel.openWith
+            //         system.openWith
+            //         (
+            //             single_selection_menu.currentPath, 
+            //             root.Window.window
+            //         )
+            //         openWithRequested(single_selection_menu.currentPath)
+            // }
             onTriggered:
             {
                 if (single_selection_menu.currentIsDir)
-                    root.openFolder(single_selection_menu.currentPath)
+                    root.openFolder(single_selection_menu.currentPath + "/")
                 else
-                    root.fileModel.openWith
-                    (
-                        single_selection_menu.currentPath, 
-                        root.Window.window
-                    )
+                    system.openWith(single_selection_menu.currentPath, root.Window.window)
             }
         }
         MenuItem
@@ -160,7 +202,7 @@ Rectangle
             (
                 root.selectedFiles, 
                 multi_selection_menu.currentName
-                )
+            )
         }
         MenuItem
         {
@@ -187,7 +229,8 @@ Rectangle
             Layout.fillHeight: true
             clip: true
             spacing: 6
-            model: root.fileModel ? root.fileModel.get_files : null
+            //model: root.fileModel ? root.fileModel.get_files : null
+            model: root.files
 
             delegate: Rectangle
             {
@@ -195,10 +238,16 @@ Rectangle
 
                 property bool pressed: false
                 property var tagColors: []
-                property string path: modelData.path
-                property string name: modelData.name
-                property bool isDir: modelData.isDir
+                //property string path: modelData.path
+                //property string name: modelData.name
+                //property bool isDir: modelData.isDir
                 readonly property bool selected: root.selectedFiles.indexOf(path) !== -1
+///
+                required property int index
+                required property string path
+                required property string name
+                required property bool isDir
+///
 
                 width: ListView.view.width
                 height: 36
@@ -213,10 +262,11 @@ Rectangle
 
                 function refreshTagColors()
                 {
-                    if (!root.fileModel || !root.tagModel)
+                    //if (!root.fileModel || !root.tagModel)
+                    if (!root.tagQuery || !root.tagModel)
                         return
-                    const ids = root.fileModel.tagIdsForFile([path])
-                    console.log("refresh", path, ids.length)
+                    //const ids = root.fileModel.tagIdsForFile([path])
+                    const ids = root.tagQuery.tagIdsForFile([path])
                     const colors = []
                     for (var i = 0; i < ids.length; i++)
                         colors.push(root.tagModel.colorForId(ids[i]))

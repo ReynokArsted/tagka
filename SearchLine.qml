@@ -6,7 +6,7 @@ RowLayout {
 
     spacing: 10
 
-    property var fileModel
+    property var search
     property var parentWin: null
     property alias path: input.text
     property alias text: input.text
@@ -17,10 +17,10 @@ RowLayout {
 
     Connections 
     {
-        target: search_panel.fileModel
+        target: search_panel.search.paths
         function onCandidatesChanged() 
         {
-            const c = search_panel.fileModel.candidates
+            const c = search_panel.search.paths.candidates
             if (c.length > 0)
                 search_panel.candidatesChangedExternally(c)
         }
@@ -63,27 +63,27 @@ RowLayout {
 
             onTextChanged: 
             {
-                if (search_panel.fileModel)
-                    search_panel.fileModel.updateCandidates(text)
+                if (search_panel.search)
+                    search_panel.search.paths.updateCandidates(text)
             }
 
             onActiveFocusChanged: 
             {
-                if (activeFocus && search_panel.fileModel)
-                    search_panel.fileModel.updateCandidates(text)
+                if (activeFocus && search_panel.search.paths)
+                    search_panel.search.paths.updateCandidates(text)
             }
 
             onAccepted: 
             {
-                const m = search_panel.fileModel
-                if (m && m.candidates.length > 0) 
+                const m = search_panel.search
+                if (m && m.paths.candidates.length > 0) 
                 {
-                    text = m.acceptFirstCandidate(text)
+                    text = m.paths.acceptFirstCandidate(text)
                 } 
                 else 
                 {
                     search_panel.folderChanged(text)
-                    if (m) m.setFolder(text)
+                    if (m) m.setQuery(text)
                 }
             }
 
@@ -92,14 +92,14 @@ RowLayout {
                 if (event.key === Qt.Key_Tab) 
                 {
                     event.accepted = true
-                    if (search_panel.fileModel)
-                        text = search_panel.fileModel.completePrefix(text)
+                    if (search_panel.search.paths)
+                        text = search_panel.search.paths.completePrefix(text)
                 } 
                 else if (event.key === Qt.Key_Escape) 
                 {
                     event.accepted = true
-                    if (search_panel.fileModel)
-                        search_panel.fileModel.clearCandidates()
+                    if (search_panel.search.paths)
+                        search_panel.search.paths.clearCandidates()
                 }
             }
         }
@@ -113,12 +113,14 @@ RowLayout {
 
             onClicked: 
             {
-                const p = fileModel.parent_folder()
-                if (p !== "" && fileModel.hasFolder) 
+                const p = search_panel.search.paths.parent_folder()
+                if (p !== "" && search_panel.search.paths.hasFolder)
                 {
                     console.log(p);
-                    fileModel.setFolder(p)
-                    if (fileModel.parent_folder() !== "") input.text = p + "/"
+                    // fileModel.setFolder(p)
+                    // if (fileModel.parent_folder() !== "") input.text = p + "/"
+                    search_panel.search.setQuery(p)
+                    if (search_panel.search.paths.parent_folder() !== "") input.text = p + "/"
                     else input.text = p
                 }
             }
@@ -142,7 +144,7 @@ RowLayout {
         onClicked: 
         {
             parentWin.confirmTagging()
-            fileModel.setFolder(input.text)
+            search_panel.search.setQuery(input.text)
         }
     }
 

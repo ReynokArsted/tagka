@@ -9,6 +9,8 @@
 #include <QDebug>
 #include <QDir>
 
+#include "System.h"
+
 QByteArray UsnJournalMonitor::fileId128ToBytes(const FILE_ID_128 &id)
 {
     return QByteArray(reinterpret_cast<const char *>(id.Identifier), sizeof(id.Identifier));
@@ -40,78 +42,24 @@ FILE_ID_128 UsnJournalMonitor::bytesToFileId128(const QByteArray &bytes)
 
 QByteArray UsnJournalMonitor::currentSystemIdForPath(const QString &path)
 {
-    HANDLE h = CreateFileW
-    (
-        reinterpret_cast<LPCWSTR>(path.utf16()),
-        0,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        nullptr, 
-        OPEN_EXISTING, 
-        FILE_FLAG_BACKUP_SEMANTICS, 
-        nullptr
-    );
-
-    if (h == INVALID_HANDLE_VALUE) return {};
-
-    FILE_ID_INFO info{};
-    BOOL ok = GetFileInformationByHandleEx(h, FileIdInfo, &info, sizeof(info));
-    CloseHandle(h);
-    if (!ok) return {};
-
-    return fileId128ToBytes(info.FileId);
+    return System::fileId128ForPath(path);
 }
 
-QString UsnJournalMonitor::getPathByHandle(HANDLE handle)
-{
-    DWORD length = GetFinalPathNameByHandleW
-    (
-        handle, 
-        nullptr, 
-        0,
-        FILE_NAME_NORMALIZED | VOLUME_NAME_DOS
-    );
-    if (length == 0) return {};
-
-    std::wstring buffer(length + 1, L'\0');
-    DWORD result = GetFinalPathNameByHandleW
-    (
-        handle, 
-        buffer.data(),
-        static_cast<DWORD>(buffer.size()),
-        FILE_NAME_NORMALIZED | VOLUME_NAME_DOS
-    );
-    if (result == 0) return {};
-
-    QString p = QString::fromWCharArray(buffer.data(), static_cast<int>(result));
-    if (p.startsWith(QStringLiteral("\\\\?\\UNC\\")))
-        p = QStringLiteral("\\\\") + p.mid(8);
-    else if (p.startsWith(QStringLiteral("\\\\?\\")))
-        p = p.mid(4);
-    return QDir::fromNativeSeparators(p);
+QString UsnJournalMonitor::getPathByHandle(HANDLE handle) 
+{ 
+    return System::pathByHandle(handle); 
 }
 
-HANDLE UsnJournalMonitor::openVolumeHandle(const QString &guidPath)
-{
-    QString path = guidPath.trimmed();
-    if (path.startsWith('"') && path.endsWith('"'))
-        path = path.mid(1, path.size() - 2);
-
-    while (path.endsWith('\\'))
-        path.chop(1);
-
-    qDebug().noquote() << "-> Opening volume:" << path;
-
-    return CreateFileW(
-        reinterpret_cast<LPCWSTR>(path.utf16()),
-        GENERIC_READ,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        nullptr, OPEN_EXISTING, 0, nullptr);
+HANDLE  UsnJournalMonitor::openVolumeHandle(const QString &p) 
+{ 
+    return System::openVolumeHandle(p); 
 }
 
 UsnJournalMonitor::UsnJournalMonitor(QObject *parent) : QThread(parent)
 {
     loadVolumes();
     reconcileStartup();
+    qDebug() << "UsnJournalMonitor created" << this;
 }
 
 UsnJournalMonitor::~UsnJournalMonitor()
@@ -120,31 +68,16 @@ UsnJournalMonitor::~UsnJournalMonitor()
     wait();
 
     for (auto &wf : watched_)
-        if (wf.handle != INVALID_HANDLE_VALUE) CloseHandle(wf.handle);
+        System::closeHandle(wf.handle);
 
     for (auto &vol : volumes_)
-        if (vol.handle != INVALID_HANDLE_VALUE)
-        {
-            USN_JOURNAL_DATA journal{};
-            DWORD br = 0;
-            if (DeviceIoControl
-            (
-                vol.handle, 
-                FSCTL_QUERY_USN_JOURNAL, 
-                nullptr, 
-                0,
-                &journal,
-                sizeof(journal),
-                &br, 
-                nullptr
-            ))
-            vol.lastUsn = journal.NextUsn;
-        }
+        if (const auto usn = System::queryNextUsn(vol.handle))
+            vol.lastUsn = *usn;
 
     saveJournalState();
 
     for (auto &vol : volumes_)
-        if (vol.handle != INVALID_HANDLE_VALUE) CloseHandle(vol.handle);
+        System::closeHandle(vol.handle);
 }
 
 void UsnJournalMonitor::loadVolumes()
@@ -161,13 +94,7 @@ void UsnJournalMonitor::loadVolumes()
         VolumeInfo info;
         info.id = vq.value(0).toInt();
         info.guidPath = vq.value(1).toString();
-        info.handle = openVolumeHandle(info.guidPath);
-
-        if (info.handle == INVALID_HANDLE_VALUE)
-        {
-            qDebug() << "ERROR: cannot open volume" << info.guidPath
-                      << "error" << GetLastError();
-        }
+        info.handle = System::openVolumeHandle(info.guidPath);
 
         QSqlQuery jq(db);
         jq.prepare("SELECT last_record FROM journal_state WHERE volume = :vid");
@@ -180,28 +107,47 @@ void UsnJournalMonitor::loadVolumes()
     }
 }
 
+// void UsnJournalMonitor::saveJournalState()
+// {
+//     QSqlDatabase db = QSqlDatabase::database("app_connection");
+//     if (!db.isOpen()) { qWarning() << "ERROR: database is not open"; return; }
+
+//         QSqlQuery q(db);
+//         q.prepare("UPDATE journal_state SET last_record = :usn WHERE volume = :vid");
+//         q.bindValue(":vid", 1);
+//         q.bindValue(":usn", static_cast<qlonglong>(volumes_[1].lastUsn));
+//         if (!q.exec())
+//             qWarning() << "ERROR: save journal_state failed:" << q.lastError().text();
+//         qDebug() << "volume" << QString(volumes_[1].guidPath) << "last record" << static_cast<qlonglong>(volumes_[1].lastUsn) << "saved";
+//     // for (const auto &vol : volumes_)
+//     // {
+//     //     QSqlQuery q(db);
+//     //     q.prepare("INSERT INTO journal_state (volume, last_record) VALUES (:vid, :usn) "
+//     //               "ON CONFLICT(volume) DO UPDATE SET last_record = :usn");
+//     //     q.bindValue(":vid", vol.id);
+//     //     q.bindValue(":usn", static_cast<qlonglong>(vol.lastUsn));
+//     //     if (!q.exec())
+//     //         qWarning() << "ERROR: save journal_state failed:" << q.lastError().text();
+//     // }
+// }
+
 void UsnJournalMonitor::saveJournalState()
 {
     QSqlDatabase db = QSqlDatabase::database("app_connection");
     if (!db.isOpen()) { qWarning() << "ERROR: database is not open"; return; }
 
+    for (const VolumeInfo &vol : std::as_const(volumes_))
+    {
         QSqlQuery q(db);
         q.prepare("UPDATE journal_state SET last_record = :usn WHERE volume = :vid");
-        q.bindValue(":vid", 1);
-        q.bindValue(":usn", static_cast<qlonglong>(volumes_[1].lastUsn));
+        q.bindValue(":vid", vol.id);
+        q.bindValue(":usn", static_cast<qlonglong>(vol.lastUsn));
         if (!q.exec())
             qWarning() << "ERROR: save journal_state failed:" << q.lastError().text();
-        qDebug() << "volume" << QString(volumes_[1].guidPath) << "last record" << static_cast<qlonglong>(volumes_[1].lastUsn) << "saved";
-    // for (const auto &vol : volumes_)
-    // {
-    //     QSqlQuery q(db);
-    //     q.prepare("INSERT INTO journal_state (volume, last_record) VALUES (:vid, :usn) "
-    //               "ON CONFLICT(volume) DO UPDATE SET last_record = :usn");
-    //     q.bindValue(":vid", vol.id);
-    //     q.bindValue(":usn", static_cast<qlonglong>(vol.lastUsn));
-    //     if (!q.exec())
-    //         qWarning() << "ERROR: save journal_state failed:" << q.lastError().text();
-    // }
+        else
+            qDebug() << "volume" << vol.guidPath << "last record"
+                     << static_cast<qlonglong>(vol.lastUsn) << "saved";
+    }
 }
 
 UsnJournalMonitor::VolumeInfo *UsnJournalMonitor::volumeById(int id)
@@ -212,99 +158,33 @@ UsnJournalMonitor::VolumeInfo *UsnJournalMonitor::volumeById(int id)
 
 bool UsnJournalMonitor::reopenById
 (
-    const VolumeInfo &vol, 
-    const QByteArray &systemId,          
+    const VolumeInfo &vol,
+    const QByteArray &systemId,
     QString &currentPath
 ) const
 {
-    if (vol.handle == INVALID_HANDLE_VALUE) return false;
-    if (systemId.size() != sizeof(FILE_ID_128)) return false;
-
-    FILE_ID_128 raw = bytesToFileId128(systemId);
-
-    FILE_ID_DESCRIPTOR desc{};
-    desc.dwSize = sizeof(desc);
-    desc.Type = ExtendedFileIdType;
-    desc.ExtendedFileId = raw;
-
-    HANDLE h = OpenFileById(
-        vol.handle, &desc,
-        FILE_READ_ATTRIBUTES,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        nullptr,
-        FILE_FLAG_BACKUP_SEMANTICS);
-
-    if (h == INVALID_HANDLE_VALUE)
-        return false;
-
-    currentPath = getPathByHandle(h);
-    CloseHandle(h);
+    currentPath = System::pathByFileId(vol.handle, systemId);
     return !currentPath.isEmpty();
 }
 
-void UsnJournalMonitor::scanJournal
-(
-    const VolumeInfo &vol, 
-    USN startUsn, 
-    DWORD reasonMask,
-    const std::function<bool(const USN_RECORD *)> &callback
-) const
-{
-    if (vol.handle == INVALID_HANDLE_VALUE) return;
-
-    USN_JOURNAL_DATA journal{};
-    DWORD br = 0;
-    if (!DeviceIoControl(vol.handle, FSCTL_QUERY_USN_JOURNAL, nullptr, 0,
-        &journal, sizeof(journal), &br, nullptr))
-        return;
-
-    USN cursor = startUsn;
-    if (cursor < journal.FirstUsn) cursor = journal.FirstUsn;
-
-    READ_USN_JOURNAL_DATA readData{};
-    readData.StartUsn = cursor;
-    readData.ReasonMask = reasonMask;
-    readData.ReturnOnlyOnClose = FALSE;
-    readData.Timeout = 0;
-    readData.BytesToWaitFor = 0;
-    readData.UsnJournalID = journal.UsnJournalID;
-
-    QByteArray buffer(1024 * 1024, Qt::Uninitialized);
-
-    while (readData.StartUsn < journal.NextUsn)
-    {
-        DWORD bytesRead = 0;
-        BOOL ok = DeviceIoControl(
-            vol.handle, FSCTL_READ_USN_JOURNAL, &readData, sizeof(readData),
-            buffer.data(), static_cast<DWORD>(buffer.size()), &bytesRead, nullptr);
-
-        if (!ok || bytesRead < sizeof(USN)) break;
-
-        USN next = *reinterpret_cast<const USN *>(buffer.constData());
-        readData.StartUsn = next;
-
-        DWORD offset = sizeof(USN);
-        bool stop = false;
-        while (offset + sizeof(USN_RECORD) <= bytesRead)
-        {
-            const auto *rec = reinterpret_cast<const USN_RECORD *>(buffer.constData() + offset);
-            if (rec->RecordLength == 0) break;
-
-            if (rec->MajorVersion == 3 && !callback(rec)) { stop = true; break; }
-
-            offset += rec->RecordLength;
-        }
-        if (stop) break;
-    }
-}
+// void UsnJournalMonitor::scanJournal
+// (
+//     const VolumeInfo &vol,
+//     USN startUsn,
+//     DWORD reasonMask,
+//     const std::function<bool(const USN_RECORD *)> &callback
+// ) const
+// {
+//     System::scanUsnJournal(vol.handle, startUsn, reasonMask, callback);
+// }
 
 UsnJournalMonitor::Fate UsnJournalMonitor::traceFateFromJournal
 (
-    const QByteArray &systemId, 
-    const QString &fileName, 
+    const QByteArray &systemId,
+    const QString &fileName,
     int originVolumeId,
-    QByteArray &newSystemId, 
-    QString &newPath, 
+    QByteArray &newSystemId,
+    QString &newPath,
     int &newVolumeId
 )
 {
@@ -312,63 +192,87 @@ UsnJournalMonitor::Fate UsnJournalMonitor::traceFateFromJournal
     if (!origin) return Fate::Unchanged;
 
     bool deleteFound = false;
-    LARGE_INTEGER deleteTime{};
+    qint64 deleteTime = 0;
 
-    scanJournal(*origin, origin->lastUsn, USN_REASON_FILE_DELETE,
-        [&](const USN_RECORD *rec) -> bool
+    // System::scanUsnJournal
+    // (
+    //     origin->handle, origin->lastUsn, USN_REASON_FILE_DELETE,
+    //     [&](const USN_RECORD *rec) -> bool
+    //     {
+    //         if (System::usnRecordFileId(rec) != systemId)
+    //             return true;
+
+    //         deleteFound = true;
+    //         deleteTime = System::usnRecordTimestamp(rec);
+    //         return false;
+    //     }
+    // );
+
+    System::scanUsnJournal
+    (
+        origin->handle, origin->lastUsn, USN_REASON_FILE_DELETE,
+        [&](const System::UsnEvent &e)
         {
-            if (fileId128ToBytes(static_cast<DWORDLONG>(
-                    rec->FileReferenceNumber)) != systemId)
-                return true;
+            if (e.fileId != systemId) return true;
 
             deleteFound = true;
-            deleteTime = rec->TimeStamp;
+            deleteTime = e.timestamp;
             return false;
-        });
+        }
+    );
 
     if (!deleteFound)
     {
         qDebug() << "WARN: no delete record found for" << systemId.toHex()
-                  << "on volume" << originVolumeId;
+                 << "on volume" << originVolumeId;
         return Fate::Unchanged;
     }
 
-    for (auto &kv : volumes_)
+    for (auto &vol : volumes_)
     {
-        VolumeInfo &vol = kv;
         if (vol.id == originVolumeId) continue;
 
         bool created = false;
-        FILE_ID_128 createdId{};
+        QByteArray createdId;
 
-        scanJournal(vol, vol.lastUsn, USN_REASON_FILE_CREATE,
-            [&](const USN_RECORD *rec) -> bool
+        // System::scanUsnJournal
+        // (
+        //     vol.handle, vol.lastUsn, USN_REASON_FILE_CREATE,
+        //     [&](const USN_RECORD *rec) -> bool
+        //     {
+        //         if (System::usnRecordTimestamp(rec) < deleteTime)
+        //             return true;
+
+        //         if (System::usnRecordFileName(rec).compare(fileName, Qt::CaseInsensitive) != 0)
+        //             return true;
+
+        //         created = true;
+        //         createdId = System::usnRecordFileId(rec);
+        //         return false;
+        //     }
+        // );
+        // в цикле по томам
+        System::scanUsnJournal
+        (
+            vol.handle, vol.lastUsn, USN_REASON_FILE_CREATE,
+            [&](const System::UsnEvent &e)
             {
-                if (rec->TimeStamp.QuadPart < deleteTime.QuadPart)
-                    return true;
-
-                const auto *base = reinterpret_cast<const char *>(rec);
-                QString name = QString::fromWCharArray(
-                    reinterpret_cast<const wchar_t *>(base + rec->FileNameOffset),
-                    rec->FileNameLength / sizeof(WCHAR));
-
-                if (name.compare(fileName, Qt::CaseInsensitive) != 0)
-                    return true;
+                if (e.timestamp < deleteTime) return true;
+                if (e.name.compare(fileName, Qt::CaseInsensitive) != 0) return true;
 
                 created = true;
-                // ?!?
-                createdId = bytesToFileId128(fileId128ToBytes(static_cast<DWORDLONG>(rec->FileReferenceNumber)));
+                createdId = e.fileId;
                 return false;
-            });
+            }
+        );
 
         if (created)
         {
-            newSystemId = fileId128ToBytes(createdId);
+            newSystemId = createdId;
             newVolumeId = vol.id;
 
-            QString path;
-            if (reopenById(vol, newSystemId, path))
-                newPath = path;
+            const QString path = System::pathByFileId(vol.handle, newSystemId);
+            if (!path.isEmpty()) newPath = path;
 
             return Fate::Moved;
         }
@@ -405,8 +309,8 @@ void UsnJournalMonitor::reconcileStartup()
             continue;
         }
 
-        QString actualPath;
-        bool stillOnVolume = reopenById(*vol, row.systemId, actualPath);
+        const QString actualPath = System::pathByFileId(vol->handle, row.systemId);
+        const bool stillOnVolume = !actualPath.isEmpty();
 
         if (stillOnVolume)
         {
@@ -496,20 +400,15 @@ void UsnJournalMonitor::deleteFileRecord(const QByteArray &systemId)
 
 bool UsnJournalMonitor::addFile(const QString &path, int volumeId)
 {
-    QByteArray systemId = currentSystemIdForPath(path);
+    const QByteArray systemId = System::fileId128ForPath(path);
     if (systemId.isEmpty()) return false;
     return addWatch(systemId, path, volumeId);
 }
 
 bool UsnJournalMonitor::addWatch(const QByteArray &systemId, const QString &path, int volumeId)
 {
-    HANDLE handle = CreateFileW(
-        reinterpret_cast<LPCWSTR>(path.utf16()),
-        FILE_READ_ATTRIBUTES,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
-
-    if (handle == INVALID_HANDLE_VALUE) return false;
+    HANDLE handle = System::openFileForWatch(path);
+    if (!System::isValidHandle(handle)) return false;
 
     WatchedFile wf;
     wf.systemId = systemId;
@@ -523,39 +422,28 @@ bool UsnJournalMonitor::addWatch(const QByteArray &systemId, const QString &path
 
 void UsnJournalMonitor::onNewFileAdded(const QString &path)
 {
-    // const int volumeId = volumeIdForPath(path);
-    // if (volumeId < 0)
-    // {
-    //     qWarning() << "WARN: volume not found for" << path;
-    //     return;
-    // }
-    // if (!addFile(path, volumeId))
     if (!addFile(path, 1))
         qWarning() << "WARN: cannot watch" << path;
 }
 
-void UsnJournalMonitor::processRecord(const USN_RECORD *record, int volumeId)
+//void UsnJournalMonitor::processRecord(const USN_RECORD *record, int volumeId)
+void UsnJournalMonitor::processEvent(const System::UsnEvent &e)
 {
-    const QByteArray fileId = fileId128ToBytes(static_cast<DWORDLONG>(record->FileReferenceNumber));
+    const QByteArray &fileId = e.fileId;
 
     auto it = watched_.find(fileId);
     if (it == watched_.end()) return;
 
-    const auto *base = reinterpret_cast<const char *>(record);
-    const QString name = QString::fromWCharArray(
-        reinterpret_cast<const wchar_t *>(base + record->FileNameOffset),
-        record->FileNameLength / sizeof(WCHAR));
-
     qDebug() << "-> USN record: fileId =" << fileId.toHex()
-              << "reason =" << Qt::hex << record->Reason << "name =" << name;
+             << "reason =" << Qt::hex << e.reason << "name =" << e.name;
 
-    if (record->Reason & USN_REASON_RENAME_OLD_NAME)
+    if (e.reason & USN_REASON_RENAME_OLD_NAME)
         return;
 
-    if (record->Reason & USN_REASON_RENAME_NEW_NAME)
+    if (e.reason & USN_REASON_RENAME_NEW_NAME)
     {
         const QString oldPath = it->path;
-        const QString newPath = getPathByHandle(it->handle);
+        const QString newPath = System::pathByHandle(it->handle);
         qDebug() << "-> rename new:" << oldPath << "->" << newPath;
         if (newPath.isEmpty() || newPath == oldPath) return;
 
@@ -569,10 +457,10 @@ void UsnJournalMonitor::processRecord(const USN_RECORD *record, int volumeId)
         return;
     }
 
-    if (record->Reason & USN_REASON_FILE_DELETE)
+    if (e.reason & USN_REASON_FILE_DELETE)
     {
         const QString path = it->path;
-        CloseHandle(it->handle);
+        System::closeHandle(it->handle);
         watched_.erase(it);
         pendingRenames_.remove(fileId);
 
@@ -584,55 +472,64 @@ void UsnJournalMonitor::processRecord(const USN_RECORD *record, int volumeId)
     }
 }
 
+// void UsnJournalMonitor::run()
+// {
+//     constexpr DWORD reasonMask =
+//         USN_REASON_RENAME_OLD_NAME |
+//         USN_REASON_RENAME_NEW_NAME |
+//         USN_REASON_FILE_DELETE;
+
+//     while (!isInterruptionRequested())
+//     {
+//         bool anyVolume = false;
+
+//         for (auto &vol : volumes_)
+//         {
+//             if (!System::isValidHandle(vol.handle)) continue;
+//             anyVolume = true;
+
+//             const auto next = System::readUsnJournalOnce
+//             (
+//                 vol.handle, vol.lastUsn, reasonMask,
+//                 [&](const USN_RECORD *rec) { processRecord(rec, vol.id); }
+//             );
+//             if (next) vol.lastUsn = *next;
+//         }
+
+//         if (!anyVolume) break;
+//         msleep(200);
+//     }
+// }
+
 void UsnJournalMonitor::run()
 {
+    constexpr DWORD reasonMask =
+        USN_REASON_RENAME_OLD_NAME |
+        USN_REASON_RENAME_NEW_NAME |
+        USN_REASON_FILE_DELETE;
+
     while (!isInterruptionRequested())
     {
         bool anyVolume = false;
 
-        for (auto &kv : volumes_)
+        for (auto &vol : volumes_)
         {
-            VolumeInfo &vol = kv;
-            if (vol.handle == INVALID_HANDLE_VALUE) continue;
+            if (!System::isValidHandle(vol.handle)) continue;
             anyVolume = true;
 
-            USN_JOURNAL_DATA journal{};
-            DWORD br = 0;
-            if (!DeviceIoControl(vol.handle, FSCTL_QUERY_USN_JOURNAL, nullptr, 0,
-                &journal, sizeof(journal), &br, nullptr))
-                continue;
-
-            READ_USN_JOURNAL_DATA readData{};
-            readData.StartUsn = vol.lastUsn ? vol.lastUsn : journal.NextUsn;
-            readData.ReasonMask = 
-                USN_REASON_RENAME_OLD_NAME |
-                USN_REASON_RENAME_NEW_NAME | 
-                USN_REASON_FILE_DELETE;
-            readData.ReturnOnlyOnClose = FALSE;
-            readData.Timeout = 0;
-            readData.BytesToWaitFor = 0;
-            readData.UsnJournalID = journal.UsnJournalID;
-
-            QByteArray buffer(1024 * 1024, Qt::Uninitialized);
-            DWORD bytesRead = 0;
-
-            BOOL ok = DeviceIoControl(
-                vol.handle, FSCTL_READ_USN_JOURNAL, &readData, sizeof(readData),
-                buffer.data(), static_cast<DWORD>(buffer.size()), &bytesRead, nullptr);
-
-            if (!ok || bytesRead < sizeof(USN)) continue;
-
-            USN next = *reinterpret_cast<const USN *>(buffer.constData());
-            vol.lastUsn = next;
-
-            DWORD offset = sizeof(USN);
-            while (offset + sizeof(USN_RECORD) <= bytesRead)
+            if (!vol.lastUsn)
             {
-                const auto *rec = reinterpret_cast<const USN_RECORD *>(buffer.constData() + offset);
-                if (rec->RecordLength == 0) break;
-                processRecord(rec, vol.id);
-                offset += rec->RecordLength;
+                const auto n = System::queryNextUsn(vol.handle);
+                if (!n) continue;
+                vol.lastUsn = *n;
             }
+
+            if (const auto next = System::scanUsnJournal
+            (
+                vol.handle, vol.lastUsn, reasonMask,
+                [this](const System::UsnEvent &e) { processEvent(e); return true; }
+            ))
+                vol.lastUsn = *next;
         }
 
         if (!anyVolume) break;

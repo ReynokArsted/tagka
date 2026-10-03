@@ -14,8 +14,8 @@ ColumnLayout
     Layout.maximumWidth: 320
     Layout.fillHeight: true
     clip: true
-    
-    property var fileModel
+
+    property var search    
     property var thingModel
     property var dragOverlay
     property bool addTagHighlight: false
@@ -39,7 +39,7 @@ ColumnLayout
     function startTagging(paths, name) 
     {
         tagTargetPaths = paths
-        selectedTagIds = fileModel.tagIdsForFile(paths)
+        selectedTagIds = search.tags.tagIdsForFile(paths)
         tagSelectMode = true
     }
 
@@ -94,14 +94,15 @@ ColumnLayout
         {
             const sep = tagInput.text.length > 0 && !tagInput.text.endsWith(" ") ? " " : ""
             tagInput.text += sep + name
-            fileModel.setFolder(tagInput.text)
+            search.setQuery(tagInput.text)
         }
     }
 
     function handleTagFilesRequested(id, name)
     {
         tagInput.text = name
-        fileModel.setFolder(name)
+        //fileModel.setFolder(name)
+        search.setQuery(name)
     }
 
     function handleTagDeleteRequested(id, name)
@@ -124,10 +125,17 @@ ColumnLayout
 
         Layout.fillWidth: true
 
-        fileModel: tag_panel.fileModel
+        //fileModel: tag_panel.fileModel
         parentWin: tag_panel
 
-        onFolderChanged: fileModel.setFolder(path)
+        search: tag_panel.search
+
+        // onFolderChanged: fileModel.setFolder(path)
+        onFolderChanged: function(path) 
+        {
+            //fileModel.setFolder(path)
+            search.setQuery(path)
+        }
     }
 
     Label 

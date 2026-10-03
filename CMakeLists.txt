@@ -43,12 +43,14 @@ qt_add_qml_module(appuntitled
         Thingie.h Thingie.cpp 
         ThingieListModel.h ThingieListModel.cpp 
         ThingModel.h ThingModel.cpp
-        FileListModel.h FileListModel.cpp
+        #FileListModel.h FileListModel.cpp
+        FileList.h FileList.cpp FileEntry.h
         DataBaseModule.h DataBaseModule.cpp
         UsnJournalMonitor.h UsnJournalMonitor.cpp
-        # RequestProcessor.h RequestProcessor.cpp
-        # PathsProcessor.h PathsProcessor.cpp
-        # TagsProcessor.h TagsProcessor.cpp
+        System.h System.cpp
+        RequestProcessor.h RequestProcessor.cpp
+        PathsProcessor.h PathsProcessor.cpp
+        TagsProcessor.h TagsProcessor.cpp
 )
 
 set_target_properties(appuntitled PROPERTIES

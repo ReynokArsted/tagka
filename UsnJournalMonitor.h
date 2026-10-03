@@ -9,6 +9,8 @@
 #include <QSqlDatabase>
 #include <functional>
 
+#include "System.h"
+
 class UsnJournalMonitor : public QThread
 {
     Q_OBJECT
@@ -84,15 +86,16 @@ private:
         int &newVolumeId
     );
 
-    void scanJournal
-    (
-        const VolumeInfo &vol, 
-        USN startUsn, 
-        DWORD reasonMask,
-        const std::function<bool(const USN_RECORD *)> &callback
-    ) const;
+    // void scanJournal
+    // (
+    //     const VolumeInfo &vol, 
+    //     USN startUsn, 
+    //     DWORD reasonMask,
+    //     const std::function<bool(const USN_RECORD *)> &callback
+    // ) const;
 
-    void processRecord(const USN_RECORD *record, int volumeId);
+    //void processRecord(const USN_RECORD *record, int volumeId);
+    void processEvent(const System::UsnEvent &e);
     bool addWatch(const QByteArray &systemId, const QString &path, int volumeId);
 
     void loadVolumes();

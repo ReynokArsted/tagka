@@ -8,6 +8,8 @@
 #include <QObject>
 #include <QStringList>
 
+#include "FileEntry.h"
+
 class FileListModel : public QObject
 {
     Q_OBJECT
@@ -21,8 +23,6 @@ public:
     QString folder() const { return m_folder; }
     Q_INVOKABLE QString parent_folder() const;
     Q_INVOKABLE void setFolder(const QString &folderPath);
-    Q_INVOKABLE void openWith(const QString &filePath, QQuickWindow *window = nullptr);
-    Q_INVOKABLE void openFile(const QString &filePath, QQuickWindow *window = nullptr);
     QVariantList get_files() const { return m_items; }
     bool hasFolder() const { return !m_folder.isEmpty(); }
 ///
@@ -45,11 +45,19 @@ public:
     Q_INVOKABLE QString acceptFirstCandidate(const QString &input) const;
 ///
 
+/// Files (new)
+    void setEntries(QVector<FileEntry> entries);
+///
+
 private:
 /// Files
     QVariantList m_items;
     QString m_folder;
 ///
+
+///
+    QVector<FileEntry> m_entries;
+//
 
 /// Autocomplete
     struct InputParts { QString dir; QString prefix; };
@@ -71,5 +79,9 @@ signals:
 
 /// Autocomplete
     void candidatesChanged();
+///
+
+///
+    void countChanged();
 ///
 };
