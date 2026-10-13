@@ -2,12 +2,10 @@
 
 namespace
 {
-    // Монитор отдаёт пути со слэшами '/', приводим обе стороны к одному виду
     bool samePath(const QString &a, const QString &b)
     {
         return QDir::cleanPath(QDir::fromNativeSeparators(a))
-                   .compare(QDir::cleanPath(QDir::fromNativeSeparators(b)),
-                            Qt::CaseInsensitive) == 0;
+            .compare(QDir::cleanPath(QDir::fromNativeSeparators(b)), Qt::CaseInsensitive) == 0;
     }
 }
 
@@ -40,10 +38,7 @@ void FileList::removePath(const QString &path)
     }
 }
 
-FileList::FileList(QObject *parent)
-    : QAbstractListModel(parent)
-{
-}
+FileList::FileList(QObject *parent): QAbstractListModel(parent) {}
 
 int FileList::rowCount(const QModelIndex &parent) const
 {
@@ -58,25 +53,25 @@ QVariant FileList::data(const QModelIndex &index, int role) const
     const FileEntry &e = m_entries.at(index.row());
     switch (role)
     {
-    case PathRole:  return e.path;
-    case NameRole:  return e.name;
-    case IsDirRole: return e.isDir;
-    default:        return {};
+        case PathRole: return e.path;
+        case NameRole: return e.name;
+        case IsDirRole: return e.isDir;
+        default: return {};
     }
 }
 
 QHash<int, QByteArray> FileList::roleNames() const
 {
-    return {
-        { PathRole,  "path"  },
-        { NameRole,  "name"  },
-        { IsDirRole, "isDir" }
+    return 
+    {
+        {PathRole, "path"},
+        {NameRole, "name"},
+        {IsDirRole, "isDir"}
     };
 }
 
 void FileList::setEntries(QVector<FileEntry> entries)
 {
-    qDebug() << "FileList::setEntries" << entries.size();
     const int oldCount = m_entries.size();
 
     beginResetModel();

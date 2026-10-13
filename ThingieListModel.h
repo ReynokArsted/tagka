@@ -10,6 +10,9 @@
 
 #include "Thingie.h"
 
+
+    class DataBaseModule;   // выше class ThingieListModel
+
 class ThingieListModel : public QAbstractListModel
 {
     Q_OBJECT
@@ -22,7 +25,12 @@ public:
         IdRole,
     };
 
-    ThingieListModel(QObject *parent = nullptr);
+
+// было:  ThingieListModel(QObject *parent = nullptr);
+explicit ThingieListModel(DataBaseModule *db, QObject *parent = nullptr);
+
+
+    // ThingieListModel(QObject *parent = nullptr);
     void updateFromVector(std::vector<Thingie*> newThingies);
     QHash<int, QByteArray> roleNames() const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -36,6 +44,9 @@ public:
 
 private:
     QList<Thingie*> _thingies;
+
+// в private:
+DataBaseModule *_db = nullptr;
 
 signals:
     void newFileAdded(const QString &path);

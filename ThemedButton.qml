@@ -7,6 +7,7 @@ Item
 
     property alias text: label.text
     property int fontSize: 14
+    property int buttonHeight: 28
     property bool showBorder: true
     property bool pressed: false
     readonly property bool hovered: mouse_area.containsMouse
@@ -14,7 +15,7 @@ Item
     signal clicked()
 
     implicitWidth: label.implicitWidth + 24
-    implicitHeight: 32
+    implicitHeight: buttonHeight
     height: implicitHeight
     width: implicitWidth      
 

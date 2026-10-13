@@ -20,7 +20,7 @@ Item
     signal tagDeleteRequested(int id, string name)
 
     width: 600
-    height: 200
+    height: 48
 
     Flickable 
     {

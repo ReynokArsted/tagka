@@ -1,10 +1,9 @@
 import QtQuick
 import QtQuick.Layouts
 
-RowLayout {
+RowLayout 
+{
     id: search_panel
-
-    spacing: 10
 
     property var search
     property var parentWin: null
@@ -14,6 +13,8 @@ RowLayout {
 
     signal folderChanged(string path)
     signal candidatesChangedExternally(var candidates)
+
+    //spacing: 10
 
     Connections 
     {
@@ -44,7 +45,7 @@ RowLayout {
             anchors.leftMargin: 8
             anchors.verticalCenter: parent.verticalCenter
 
-            text: qsTr("Поиск?")
+            text: qsTr("Поле поиска")
             color: "#888"
             font.pixelSize: 16
         }
@@ -83,7 +84,7 @@ RowLayout {
                 else 
                 {
                     search_panel.folderChanged(text)
-                    if (m) m.setQuery(text)
+                    if (m) m.doRequest(text)
                 }
             }
 
@@ -108,23 +109,19 @@ RowLayout {
     ThemedButton 
     {
         text: qsTr("..")
-            Layout.preferredWidth: 40
-            Layout.preferredHeight: 40
+        Layout.preferredWidth: 40
+        Layout.preferredHeight: 40
 
-            onClicked: 
+        onClicked: 
+        {
+            const p = search_panel.search.paths.parentOf(input.text)
+            if (p !== "")
             {
-                const p = search_panel.search.paths.parent_folder()
-                if (p !== "" && search_panel.search.paths.hasFolder)
-                {
-                    console.log(p);
-                    // fileModel.setFolder(p)
-                    // if (fileModel.parent_folder() !== "") input.text = p + "/"
-                    search_panel.search.setQuery(p)
-                    if (search_panel.search.paths.parent_folder() !== "") input.text = p + "/"
-                    else input.text = p
-                }
+                search_panel.search.doRequest(p)
+                input.text = p.endsWith("/") ? p : p + "/"
             }
         }
+    }
     ThemedButton 
     {
         text: qsTr("+")
@@ -144,7 +141,7 @@ RowLayout {
         onClicked: 
         {
             parentWin.confirmTagging()
-            search_panel.search.setQuery(input.text)
+            search_panel.search.doRequest(input.text)
         }
     }
 

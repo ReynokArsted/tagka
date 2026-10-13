@@ -11,9 +11,11 @@ Dialog
     id: root
 
     property string message: qsTr("Ошибка поиска файла")
+    property bool critical: false
 
+    focus: true
+    closePolicy: critical ? Popup.NoAutoClose : Popup.CloseOnEscape
     modal: false
-    closePolicy: Popup.NoAutoClose
 
     anchors.centerIn: Overlay.overlay
     width: Overlay.overlay ? Overlay.overlay.width - 8 : 0

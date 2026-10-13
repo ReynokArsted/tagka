@@ -11,12 +11,18 @@
 
 #include "System.h"
 
+class DataBaseModule;   // выше class UsnJournalMonitor
+
 class UsnJournalMonitor : public QThread
 {
     Q_OBJECT
 
 public:
-    explicit UsnJournalMonitor(QObject *parent = nullptr);
+
+// было:  explicit UsnJournalMonitor(QObject *parent = nullptr);
+explicit UsnJournalMonitor(DataBaseModule *db, QObject *parent = nullptr);
+
+    // explicit UsnJournalMonitor(QObject *parent = nullptr);
     ~UsnJournalMonitor() override;
 
     void reconcileStartup();
@@ -44,17 +50,17 @@ private:
     struct WatchedFile
     {
         QByteArray systemId;
-        HANDLE     handle = INVALID_HANDLE_VALUE;
-        QString    path;
-        int        volumeId = 0;
+        HANDLE handle = INVALID_HANDLE_VALUE;
+        QString path;
+        int volumeId = 0;
     };
 
     struct VolumeInfo
     {
-        int      id = 0;
-        QString  guidPath;                    
-        HANDLE   handle = INVALID_HANDLE_VALUE; 
-        USN      lastUsn = 0;                
+        int id = 0;
+        QString guidPath;                    
+        HANDLE handle = INVALID_HANDLE_VALUE; 
+        USN lastUsn = 0;                
     };
 
     struct PendingRename
@@ -62,6 +68,9 @@ private:
         QString oldName;
         QByteArray oldParentId;
     };
+
+    // в private:
+DataBaseModule *db_ = nullptr;
 
     QHash<QByteArray, WatchedFile> watched_; 
     QHash<int, VolumeInfo> volumes_;       
@@ -86,15 +95,6 @@ private:
         int &newVolumeId
     );
 
-    // void scanJournal
-    // (
-    //     const VolumeInfo &vol, 
-    //     USN startUsn, 
-    //     DWORD reasonMask,
-    //     const std::function<bool(const USN_RECORD *)> &callback
-    // ) const;
-
-    //void processRecord(const USN_RECORD *record, int volumeId);
     void processEvent(const System::UsnEvent &e);
     bool addWatch(const QByteArray &systemId, const QString &path, int volumeId);
 

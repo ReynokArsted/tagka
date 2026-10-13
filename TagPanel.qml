@@ -8,7 +8,7 @@ ColumnLayout
 {
     id: tag_panel
 
-    spacing: 10
+    //spacing: 10
     Layout.preferredWidth: 320
     Layout.minimumWidth: 320
     Layout.maximumWidth: 320
@@ -94,7 +94,7 @@ ColumnLayout
         {
             const sep = tagInput.text.length > 0 && !tagInput.text.endsWith(" ") ? " " : ""
             tagInput.text += sep + name
-            search.setQuery(tagInput.text)
+            search.doRequest(tagInput.text)
         }
     }
 
@@ -102,7 +102,7 @@ ColumnLayout
     {
         tagInput.text = name
         //fileModel.setFolder(name)
-        search.setQuery(name)
+        search.doRequest(name)
     }
 
     function handleTagDeleteRequested(id, name)
@@ -112,38 +112,21 @@ ColumnLayout
         else removeTagFromSelection(id)
     }
 
-    Label 
-    {
-        color: Theme.textColor
-        font.pixelSize: 14
-        Layout.alignment: Qt.AlignHCenter
-    }
-
     SearchLine 
     {
         id: search_line
 
         Layout.fillWidth: true
+        Layout.topMargin: 12
 
-        //fileModel: tag_panel.fileModel
         parentWin: tag_panel
 
         search: tag_panel.search
 
-        // onFolderChanged: fileModel.setFolder(path)
         onFolderChanged: function(path) 
         {
-            //fileModel.setFolder(path)
-            search.setQuery(path)
+            search.doRequest(path)
         }
-    }
-
-    Label 
-    {
-        text: qsTr("Текущий ввод: %1").arg(tagInput.text)
-        font.pixelSize: 12
-        color: "gray"
-        Layout.alignment: Qt.AlignHCenter
     }
 
     ThingGrid 
@@ -153,6 +136,8 @@ ColumnLayout
         Layout.fillWidth: true
         Layout.fillHeight: true
         Layout.minimumHeight: 0
+        //Layout.topMargin: 10
+        Layout.bottomMargin: 10
         highlightBorders: tag_panel.addTagHighlight
         isTagSelectionMode: tag_panel.tagSelectMode
         selectedTagIds: tag_panel.selectedTagIds
@@ -163,107 +148,107 @@ ColumnLayout
         onTagDeleteRequested: (id, name) => tag_panel.handleTagDeleteRequested(id, name)
     }
                         
-    RowLayout 
-    {
-        Layout.fillWidth: true
-        Layout.preferredHeight: 52
+    // RowLayout 
+    // {
+    //     Layout.fillWidth: true
+    //     Layout.preferredHeight: 52
                             
-        ThemedButton 
-        {
-            text: "⚙"
-            onClicked: tag_panel.settingsClicked()
-        }
-        ThemedButton 
-        {
-            id: help_button
+    //     ThemedButton 
+    //     {
+    //         text: "⚙"
+    //         onClicked: tag_panel.settingsClicked()
+    //     }
+    //     ThemedButton 
+    //     {
+    //         id: help_button
 
-            text: "?"
-            onClicked: tag_panel.helpClicked()
+    //         text: "?"
+    //         onClicked: tag_panel.helpClicked()
 
-            ToolTip 
-            {
-                id: help_tooltip
+    //         ToolTip 
+    //         {
+    //             id: help_tooltip
 
-                popupType: Popup.Window
-                visible: help_button.hovered
-                delay: 1000
-                timeout: 5000
-                text: qsTr("tip test")
-                //text: qsTr("loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong tip test")
+    //             popupType: Popup.Window
+    //             visible: help_button.hovered
+    //             delay: 1000
+    //             timeout: 5000
+    //             text: qsTr("tip test")
+    //             //text: qsTr("loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong tip test")
 
-                x: (help_button.width - width) / 2
-                y: -height - 8
+    //             x: (help_button.width - width) / 2
+    //             y: -height - 8
 
-                contentItem: Text 
-                {
-                    id: tooltip_text
+    //             contentItem: Text 
+    //             {
+    //                 id: tooltip_text
 
-                    text: help_tooltip.text
-                    color: "#142528"
+    //                 text: help_tooltip.text
+    //                 color: "#142528"
 
-                    width: help_tooltip.width
+    //                 width: help_tooltip.width
 
-                    wrapMode: Text.WordWrap
+    //                 wrapMode: Text.WordWrap
 
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                    leftPadding: 12
-                    rightPadding: 12
-                    topPadding: 8
-                    bottomPadding: 18
-                }
+    //                 horizontalAlignment: Text.AlignHCenter
+    //                 verticalAlignment: Text.AlignVCenter
+    //                 leftPadding: 12
+    //                 rightPadding: 12
+    //                 topPadding: 8
+    //                 bottomPadding: 18
+    //             }
 
-                background: Item 
-                {
-                    implicitWidth: tooltip_text.implicitWidth
-                    implicitHeight: tooltip_text.implicitHeight
+    //             background: Item 
+    //             {
+    //                 implicitWidth: tooltip_text.implicitWidth
+    //                 implicitHeight: tooltip_text.implicitHeight
 
-                    Canvas 
-                    {
-                        id: canvas
+    //                 Canvas 
+    //                 {
+    //                     id: canvas
 
-                        anchors.fill: parent
+    //                     anchors.fill: parent
 
-                        onPaint: 
-                        {
-                            var ctx = getContext("2d")
-                            ctx.reset()
+    //                     onPaint: 
+    //                     {
+    //                         var ctx = getContext("2d")
+    //                         ctx.reset()
 
-                            var w = width
-                            var h = height
-                            var r = 14
-                            var tailWidth = 20
-                            var tailHeight = 10
-                            var bodyBottom = h - tailHeight
+    //                         var w = width
+    //                         var h = height
+    //                         var r = 14
+    //                         var tailWidth = 20
+    //                         var tailHeight = 10
+    //                         var bodyBottom = h - tailHeight
 
-                            ctx.beginPath()
-                            ctx.moveTo(r, 0)
-                            ctx.lineTo(w - r, 0)
-                            ctx.quadraticCurveTo(w, 0, w, r)
-                            ctx.lineTo(w, bodyBottom - r)
-                            ctx.quadraticCurveTo(w, bodyBottom, w - r, bodyBottom)
+    //                         ctx.beginPath()
+    //                         ctx.moveTo(r, 0)
+    //                         ctx.lineTo(w - r, 0)
+    //                         ctx.quadraticCurveTo(w, 0, w, r)
+    //                         ctx.lineTo(w, bodyBottom - r)
+    //                         ctx.quadraticCurveTo(w, bodyBottom, w - r, bodyBottom)
 
-                            ctx.lineTo((w + tailWidth) / 2, bodyBottom)
-                            ctx.lineTo(w / 2, h)
-                            ctx.lineTo((w - tailWidth) / 2, bodyBottom)
+    //                         ctx.lineTo((w + tailWidth) / 2, bodyBottom)
+    //                         ctx.lineTo(w / 2, h)
+    //                         ctx.lineTo((w - tailWidth) / 2, bodyBottom)
 
-                            ctx.lineTo(r, bodyBottom)
-                            ctx.quadraticCurveTo(0, bodyBottom, 0, bodyBottom - r)
-                            ctx.lineTo(0, r)
-                            ctx.quadraticCurveTo(0, 0, r, 0)
-                            ctx.closePath()
+    //                         ctx.lineTo(r, bodyBottom)
+    //                         ctx.quadraticCurveTo(0, bodyBottom, 0, bodyBottom - r)
+    //                         ctx.lineTo(0, r)
+    //                         ctx.quadraticCurveTo(0, 0, r, 0)
+    //                         ctx.closePath()
 
-                            ctx.fillStyle = "#FDFDFD"
-                            ctx.fill()
+    //                         ctx.fillStyle = "#FDFDFD"
+    //                         ctx.fill()
 
-                            ctx.strokeStyle = "#142528"
-                            ctx.lineWidth = 2
-                            ctx.lineJoin = "round"
-                            ctx.stroke()
-                        }
-                    }
-                }
-            }
-        }
-    }
+    //                         ctx.strokeStyle = "#142528"
+    //                         ctx.lineWidth = 2
+    //                         ctx.lineJoin = "round"
+    //                         ctx.stroke()
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 }

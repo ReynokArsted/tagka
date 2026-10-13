@@ -16,8 +16,12 @@ struct FileEntry
         return { fi.absoluteFilePath(), fi.fileName(), fi.isDir() };
     }
 
-    static QVector<FileEntry> listDir(const QString &dirPath, QDir::SortFlags sort,
-                                      const QString &prefix = QString())
+    static QVector<FileEntry> listDir
+    (
+        const QString &dirPath, 
+        QDir::SortFlags sort,
+        const QString &prefix = QString()
+    )
     {
         QVector<FileEntry> out;
         const QDir dir(dirPath);
