@@ -455,8 +455,6 @@
 
 namespace
 {
-    // ---------- Shell ----------
-
     std::wstring resolveExistingPath(const QString &filePath)
     {
         QString localPath = filePath;
@@ -474,7 +472,6 @@ namespace
         return window ? reinterpret_cast<HWND>(window->winId()) : nullptr;
     }
 
-    // 0 при успехе, иначе GetLastError()
     DWORD shellExecute(const wchar_t *verb, const std::wstring &path, HWND parent = nullptr)
     {
         SHELLEXECUTEINFOW sei = {};
@@ -487,8 +484,6 @@ namespace
 
         return ShellExecuteExW(&sei) ? 0 : GetLastError();
     }
-
-    // ---------- Файлы и журнал ----------
 
     HANDLE openPath(const QString &path, DWORD access, DWORD flags)
     {
@@ -538,8 +533,6 @@ namespace
 
 System::System(QObject *parent) : QObject(parent) {}
 
-// ---------- Открытие файлов ----------
-
 void System::openWith(const QString &filePath, QQuickWindow *window)
 {
     const std::wstring wpath = resolveExistingPath(filePath);
@@ -564,8 +557,6 @@ void System::openFile(const QString &filePath, QQuickWindow *window)
     }
     else qWarning() << "ERROR: ShellExecuteExW (open) failed with error code" << err;
 }
-
-// ---------- Хэндлы ----------
 
 bool System::isValidHandle(HANDLE handle)
 {
@@ -600,8 +591,6 @@ HANDLE System::openFileForWatch(const QString &path)
 {
     return openPath(path, FILE_READ_ATTRIBUTES, FILE_FLAG_BACKUP_SEMANTICS);
 }
-
-// ---------- Идентификаторы и пути ----------
 
 QByteArray System::fileId128ForPath(const QString &path)
 {
@@ -654,8 +643,12 @@ QString System::pathByFileId(HANDLE volumeHandle, const QByteArray &fileId128)
     FILE_ID_DESCRIPTOR desc{};
     desc.dwSize = sizeof(desc);
     desc.Type = ExtendedFileIdType;
-    std::memcpy(desc.ExtendedFileId.Identifier, fileId128.constData(),
-                sizeof(desc.ExtendedFileId.Identifier));
+    std::memcpy
+    (
+        desc.ExtendedFileId.Identifier, 
+        fileId128.constData(),
+        sizeof(desc.ExtendedFileId.Identifier)
+    );
 
     HANDLE h = OpenFileById
     (
@@ -671,8 +664,6 @@ QString System::pathByFileId(HANDLE volumeHandle, const QByteArray &fileId128)
     closeHandle(h);
     return path;
 }
-
-// ---------- Журнал USN ----------
 
 std::optional<USN> System::queryNextUsn(HANDLE volumeHandle)
 {
@@ -693,16 +684,23 @@ std::optional<USN> System::scanUsnJournal
     READ_USN_JOURNAL_DATA readData{};
     readData.StartUsn = std::max(startUsn, journal->FirstUsn);
     readData.ReasonMask = reasonMask;
-    readData.UsnJournalID = journal->UsnJournalID;   // остальные поля нулевые
+    readData.UsnJournalID = journal->UsnJournalID;   
 
     QByteArray buffer(1024 * 1024, Qt::Uninitialized);
 
     while (readData.StartUsn < journal->NextUsn)
     {
         DWORD bytesRead = 0;
-        if (!DeviceIoControl(volumeHandle, FSCTL_READ_USN_JOURNAL, &readData, sizeof(readData),
-                             buffer.data(), static_cast<DWORD>(buffer.size()), &bytesRead, nullptr)
-            || bytesRead < sizeof(USN))
+        if (!DeviceIoControl
+            (
+                volumeHandle, 
+                FSCTL_READ_USN_JOURNAL, 
+                &readData, 
+                sizeof(readData),
+                buffer.data(), 
+                static_cast<DWORD>(buffer.size()), 
+                &bytesRead, nullptr
+            )|| bytesRead < sizeof(USN))
             break;
 
         readData.StartUsn = *reinterpret_cast<const USN *>(buffer.constData());

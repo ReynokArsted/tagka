@@ -279,36 +279,23 @@ void FileListModel::setFolder(const QString &folderPath)
     qDebug() << "-> temp_list =" << temp_list;
 
     // check operands count 
-    // bool other_operand_wasnt_found = false;
-    // for (int i = 0; i < temp_list.length(); i++) {
-    //     if (ref.contains(temp_list[i]) && temp_list[i] != "(" && temp_list[i] != ")") {
-    //         if (temp_list[i] == "\\" && ref.contains(temp_list[i+1]))
-    //             other_operand_wasnt_found = true;
-    //         else if (temp_list[i] != "\\" && 
-    //             (i == temp_list.length() - 1 || i == 0 || 
-    //             (ref.contains(temp_list[i-1]) && !(QString("()").contains(temp_list[i-1]))) || 
-    //             (ref.contains(temp_list[i+1]) && !(QString("()").contains(temp_list[i+1]))))
-    //         )
-    //             other_operand_wasnt_found = true;
-    //     }
-    // }
     bool other_operand_wasnt_found = false;
-const int n = temp_list.length();
-for (int i = 0; i < n; i++)
-{
-    const QString &t = temp_list[i];
-    if (t != "+" && t != "*" && t != "\\") continue;
+    const int n = temp_list.length();
+    for (int i = 0; i < n; i++)
+    {
+        const QString &t = temp_list[i];
+        if (t != "+" && t != "*" && t != "\\") continue;
 
-    const QString prev = i > 0     ? temp_list[i - 1] : QString();
-    const QString next = i + 1 < n ? temp_list[i + 1] : QString();
+        const QString prev = i > 0     ? temp_list[i - 1] : QString();
+        const QString next = i + 1 < n ? temp_list[i + 1] : QString();
 
-    const bool next_ok = check_tag(next) || next == "(";
-    const bool prev_ok = check_tag(prev) || prev == ")";
-    const bool unary   = (t == "\\") && (i == 0 || prev == "(");
+        const bool next_ok = check_tag(next) || next == "(";
+        const bool prev_ok = check_tag(prev) || prev == ")";
+        const bool unary   = (t == "\\") && (i == 0 || prev == "(");
 
-    if (!next_ok || (!prev_ok && !unary))
-        other_operand_wasnt_found = true;
-}
+        if (!next_ok || (!prev_ok && !unary))
+            other_operand_wasnt_found = true;
+    }
     if (other_operand_wasnt_found)
     {
         qDebug() << "ERROR: one operand wasn't found";
@@ -357,29 +344,21 @@ for (int i = 0; i < n; i++)
         {
             //qDebug() << temp_list[i] << "is a tag or an operation";
             if (path_indicator) error_was_found = true;
-            // if (temp_list[i] == "\\" && (i == 0 || temp_list[i - 1] == "(")) 
-            // {
-            //     temp_list.insert(i == 0? 0 : i - 1, "##");
-            //     i++;
-            // }
-            if (temp_list[i] == "\\" && (i == 0 || temp_list[i - 1] == "("))
-{
-    temp_list.insert(i, "##");  
-    i++;
-}
-            // if (i + 1 != temp_list.length()  && temp_list[i].contains("#") && temp_list[i + 1].contains("#"))
-            // {
-            //     temp_list.insert(i + 1, "*");
-            //     i++;
-            // }
-            auto operand_end   = [&](const QString &s) { return check_tag(s) || s == ")"; };
-auto operand_start = [&](const QString &s) { return check_tag(s) || s == "("; };
 
-if (i + 1 != temp_list.length() && operand_end(temp_list[i]) && operand_start(temp_list[i + 1]))
-{
-    temp_list.insert(i + 1, "*");
-    i++;
-}
+            if (temp_list[i] == "\\" && (i == 0 || temp_list[i - 1] == "("))
+            {
+                temp_list.insert(i, "##");  
+                i++;
+            }
+            auto operand_end   = [&](const QString &s) { return check_tag(s) || s == ")"; };
+            auto operand_start = [&](const QString &s) { return check_tag(s) || s == "("; };
+
+            if (i + 1 != temp_list.length() && operand_end(temp_list[i]) 
+                && operand_start(temp_list[i + 1]))
+            {
+                temp_list.insert(i + 1, "*");
+                i++;
+            }
             last_tag_index = i;
         }
         else path_indicator = true;
@@ -497,10 +476,15 @@ if (i + 1 != temp_list.length() && operand_end(temp_list[i]) && operand_start(te
             {   
                 int k = 1, t = 1;
 ///
-auto pos = operations_list[i][j];
-while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
-while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
-if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChanged(); return; }
+                auto pos = operations_list[i][j];
+                while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
+                while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
+                if (pos - k < 0 || pos + t >= temp_list.length()) 
+                { 
+                    m_items = {}; 
+                    emit itemsChanged(); 
+                    return; 
+                }
 ///                
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
@@ -557,11 +541,16 @@ if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChan
             else if (temp_list[operations_list[i][j]] == "*")
             {
                 int k = 1, t = 1;
-                ///
+///
                 auto pos = operations_list[i][j];
-while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
-while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
-if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChanged(); return; }
+                while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
+                while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
+                if (pos - k < 0 || pos + t >= temp_list.length()) 
+                { 
+                    m_items = {}; 
+                    emit itemsChanged(); 
+                    return; 
+                }
 ///   
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
@@ -588,9 +577,11 @@ if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChan
                 }    
                 else
                 {
-                    result = intersect_op(
+                    result = intersect_op
+                    (
                         temp_list[operations_list[i][j] - k], 
-                        temp_list[operations_list[i][j] + t]);
+                        temp_list[operations_list[i][j] + t]
+                    );
                 }
                 qDebug() << "-> result:" << result;
 
@@ -618,11 +609,16 @@ if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChan
             else if (temp_list[operations_list[i][j]] == "\\")
             {
                 int k = 1, t = 1; 
-                ///
+///
                 auto pos = operations_list[i][j];
-while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
-while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
-if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChanged(); return; }
+                while (pos - k >= 0 && temp_list[pos - k].isEmpty()) k++;
+                while (pos + t < temp_list.length() && temp_list[pos + t].isEmpty()) t++;
+                if (pos - k < 0 || pos + t >= temp_list.length()) 
+                {
+                    m_items = {}; 
+                    emit itemsChanged(); 
+                    return; 
+                }
 ///  
                 while (temp_list[operations_list[i][j] - k] == "") k++;
                 while (temp_list[operations_list[i][j] + t] == "") t++;
@@ -700,8 +696,13 @@ if (pos - k < 0 || pos + t >= temp_list.length()) { m_items = {}; emit itemsChan
                 return;
             }
             QString tag_name;
-for (const QString &tok : temp_list)
-    if (check_tag(tok)) { tag_name = tok.mid(1); break; }
+            
+            for (const QString &tok : temp_list)
+                if (check_tag(tok)) 
+                { 
+                    tag_name = tok.mid(1); 
+                    break; 
+                }
             QSqlQuery query(db);
             query.prepare("SELECT file.path FROM tag JOIN tag_file ON tag_file.tag_id = tag.id JOIN file ON file.id = tag_file.file_id WHERE tag.tag_name = :tag");
             query.bindValue(":tag", tag_name);
@@ -955,16 +956,11 @@ QString FileListModel::acceptFirstCandidate(const QString &input) const
     return result;
 }
 
-///
 void FileListModel::setEntries(QVector<FileEntry> entries)
 {
     const int oldCount = m_entries.size();
- 
-    //beginResetModel();
     m_entries = std::move(entries);
-    //endResetModel();
  
     if (oldCount != m_entries.size())
         emit countChanged();
 }
-///

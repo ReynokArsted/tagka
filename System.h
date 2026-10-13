@@ -22,12 +22,12 @@ public:
     Q_INVOKABLE void openFile(const QString &filePath, QQuickWindow *window);
 
     struct UsnEvent
-{
-    QByteArray fileId;    
-    QString    name;
-    qint64     timestamp = 0;
-    DWORD      reason = 0;
-};
+    {
+        QByteArray fileId;    
+        QString    name;
+        qint64     timestamp = 0;
+        DWORD      reason = 0;
+    };
 
     static QByteArray fileId128ForPath(const QString &path);
     static QString pathByHandle(HANDLE handle);

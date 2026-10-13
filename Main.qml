@@ -13,10 +13,10 @@ ApplicationWindow
 {
     id: win
 
-    width: 800
+    width: 800        
     height: 450
     minimumWidth: 500
-    minimumHeight: 350
+    minimumHeight: 190
     visible: true
     title: "tagka"
     color: "transparent"
@@ -167,7 +167,16 @@ ApplicationWindow
                     Layout.fillHeight: true
 
                     System { id: system }
-                    RequestProcessor { id: search }
+                    RequestProcessor
+                    {
+                        id: search
+                        onErrorOccurred: (message, critical) =>
+                        {
+                            file_find_error_dialog.message = message
+                            file_find_error_dialog.critical = critical
+                            win.file_find_error_mode = true
+                        }
+                    }
 
                     TagPanel 
                     {
@@ -196,25 +205,28 @@ ApplicationWindow
                         Layout.rightMargin: 6
                         Layout.leftMargin: 6
 
-                        //fileModel: fileModel
                         tagModel: ThingModel.listOfThingies
 
                         renameMode: win.renameMode
                         editingPath: win.editingPath
                         editingName: win.editingName
-///
+
                         files: search.files
                         tagQuery: search.tags
                         onOpenFileRequested: (path) => system.openFile(path, win)
                         onOpenWithRequested: (path) => system.openWith(path, win)
-///
-                        ///onFolderOpened: (path) => tag_panel.tagInput.text = path
+
+                        // onFolderOpened: (path) =>
+                        // {
+                        //     tag_panel.tagInput.text = path
+                        //     search.setQuery(path)            
+                        // }
                         onFolderOpened: (path) =>
-                        {
-                            tag_panel.tagInput.text = path
-                            search.setQuery(path)            
-                        }
-///
+{
+    tag_panel.tagInput.text = path
+    search.doRequest(path)
+}
+
                         onTagRequested: (paths, name) => tag_panel.startTagging(paths, name)
                         onRenameRequested: (path, name) => win.startRename(path, name)
                         onRenameCommitted: (newName) => win.commitRename(newName)
@@ -258,11 +270,15 @@ ApplicationWindow
 
                 corner_radius: content.r - content.frame
                 move_target: win
+
+                onSettingsClicked: win.settings_mode = true
+                onHelpClicked: win.help_mode = true 
             }
         }
     }
 
-    Item {
+    Item 
+    {
         id: drag_overlay
         anchors.fill: parent
         z: 1000

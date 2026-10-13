@@ -12,17 +12,12 @@ Rectangle
 {
     id: root
 
-///
-    ///property var fileModel: null
-    property var files: null        // search.files
-    property var tagQuery: null     // search.tags
-///      
+    property var files: null       
+    property var tagQuery: null   
     property var tagModel: null         
-
     property bool renameMode: false
     property string editingPath: ""
     property string editingName: ""
-
     property var selectedFiles: []
 
     signal folderOpened(string path)
@@ -32,28 +27,23 @@ Rectangle
     signal renameCancelled()
     signal deleteTagsRequested(var paths)
     signal deleteRequested(var paths)
-
-///
     signal openFileRequested(string path)
     signal openWithRequested(string path)
-///
-    //FileListModel { id: files }
+
     System { id: system }
 
     Connections
-{
-    target: UsnJournalMonitor
-
-    function onFilePathChanged(oldPath, newPath)
     {
-        if (root.files) root.files.renamePath(oldPath, newPath)
+        target: UsnJournalMonitor
+        function onFilePathChanged(oldPath, newPath)
+        {
+            if (root.files) root.files.renamePath(oldPath, newPath)
+        }
+        function onFileDeleted(path, systemId)
+        {
+            if (root.files) root.files.removePath(path)
+        }
     }
-
-    function onFileDeleted(path, systemId)
-    {
-        if (root.files) root.files.removePath(path)
-    }
-}
 
     function clearSelection()
     {
@@ -83,14 +73,6 @@ Rectangle
     {
         selectedFiles = [p]
     }
-
-    // function openItem(p, dir)
-    // {
-    //     if (dir) openFolder(p)
-    //     // else fileModel.openFile(p, root.Window.window)
-    //     else system.openFile(p, root.Window.window)
-    //     openFileRequested(p)
-    // }
 
     function openItem(p, dir)
     {

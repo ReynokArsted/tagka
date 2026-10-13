@@ -10,7 +10,7 @@
 #include <objbase.h>
 
 #include "Translator.h"
-//#include "FileListModel.h"
+#include "TagsProcessor.h"
 #include "FileList.h"
 #include "DataBaseModule.h"
 #include "UsnJournalMonitor.h"
@@ -32,13 +32,19 @@ int main(int argc, char *argv[])
 
     QGuiApplication app(argc, argv);
     
-    DataBaseModule db_module;
-    if (!db_module.open()) return -1;
-    QSqlDatabase db = QSqlDatabase::database("app_connection");
+    // DataBaseModule db_module;
+    // if (!db_module.open()) return -1;
+    // QSqlDatabase db = QSqlDatabase::database("app_connection");
  
-    UsnJournalMonitor monitor;
+    DataBaseModule db;
+    if (!db.open()) return -1;
+
+ThingModel thingModel(&db);
+//TagsProcessor tagsProcessor(&db);
+UsnJournalMonitor monitor(&db);
+    //UsnJournalMonitor monitor;
     FileList fileList;
-    ThingModel thingModel;
+    //ThingModel thingModel;
     System system;
 
     QObject::connect
@@ -77,7 +83,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     Translator translator(&engine);
     engine.rootContext()->setContextProperty("Translator", &translator);
-    engine.rootContext()->setContextProperty("DataBaseModule", &db_module);
+    engine.rootContext()->setContextProperty("DataBaseModule", &db);
     engine.rootContext()->setContextProperty("ThingModel", &thingModel);
     //engine.rootContext()->setContextProperty("FileListModel", &fileListModel);
     engine.rootContext()->setContextProperty("UsnJournalMonitor", &monitor);

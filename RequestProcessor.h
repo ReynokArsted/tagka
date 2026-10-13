@@ -8,6 +8,8 @@
 #include "PathsProcessor.h"
 #include "TagsProcessor.h"
 
+class DataBaseModule;          // на уровне файла, до class RequestProcessor
+
 class RequestProcessor : public QObject
 {
     Q_OBJECT
@@ -17,14 +19,20 @@ class RequestProcessor : public QObject
     Q_PROPERTY(PathsProcessor *paths READ paths CONSTANT)
     Q_PROPERTY(TagsProcessor  *tags  READ tags  CONSTANT)
 
-public:
+signals:
+    //void errorOccurred(const QString &message);
+    void errorOccurred(const QString &message, bool critical);
+
+public:    
+    // было: explicit RequestProcessor(QObject *parent = nullptr);
+    //explicit RequestProcessor(DataBaseModule *db, QObject *parent = nullptr);
     explicit RequestProcessor(QObject *parent = nullptr);
 
     FileList  *files() const { return m_files; }
     PathsProcessor *paths() const { return m_paths; }
     TagsProcessor  *tags()  const { return m_tags; }
 
-    Q_INVOKABLE void setQuery(const QString &input);
+    Q_INVOKABLE void doRequest(const QString &input);
 
 private:
     FileList  *m_files;

@@ -65,7 +65,7 @@ Lookup lookup(const QString &input)
 
 PathsProcessor::PathsProcessor(QObject *parent): QObject(parent) {}
 
-std::optional<QVector<FileEntry>> PathsProcessor::entries(const QString &path)
+std::optional<QVector<FileEntry>> PathsProcessor::getFilesByPath(const QString &path)
 {
     const QDir dir(path);
     if (!dir.exists())
@@ -82,6 +82,12 @@ QString PathsProcessor::parent_folder() const
     if (dir.cdUp())
         return dir.absolutePath();
     return {};
+}
+
+QString PathsProcessor::parentOf(const QString &path) const
+{
+    QDir dir(QDir::fromNativeSeparators(path.trimmed()));
+    return dir.cdUp() ? dir.path() : QString(); 
 }
 
 QVariantList PathsProcessor::candidates() const

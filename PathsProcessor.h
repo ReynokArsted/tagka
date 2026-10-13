@@ -19,10 +19,11 @@ class PathsProcessor : public QObject
 public:
     explicit PathsProcessor(QObject *parent = nullptr);
 
-    std::optional<QVector<FileEntry>> entries(const QString &path);
+    std::optional<QVector<FileEntry>> getFilesByPath(const QString &path);
 
     bool hasFolder() const { return !m_folder.isEmpty(); }
     Q_INVOKABLE QString parent_folder() const;
+    Q_INVOKABLE QString parentOf(const QString &path) const;
 
     QVariantList candidates() const;                                 
     const QVector<FileEntry> &candidateEntries() const { return m_candidates; }
