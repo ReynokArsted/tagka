@@ -12,45 +12,52 @@ qt_standard_project_setup(REQUIRES 6.8)
 set(QML_IMPORT_PATH "C:/msys64/ucrt64/qml" CACHE STRING "QML import paths" FORCE)
 
 qt_add_executable(appuntitled
-    Main.cpp
-    Translator.h
+    src/main.cpp
+    src/utils/Translator.h
 )
 
 qt_add_translations(appuntitled TS_FILES i18n/en.ts)
 
-set_source_files_properties(Theme.qml
+set_source_files_properties(qml/Theme.qml
     PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 )
 
 qt_add_qml_module(appuntitled
     URI untitled
     VERSION 1.0
-    QML_FILES 
-        Main.qml
-        Theme.qml
-        ThemedButton.qml 
-        ThingGrid.qml 
-        ThingTile.qml
-        TopBar.qml
-        BottomBar.qml
-        TagPanel.qml
-        SearchLine.qml
-        FilePanel.qml
-        SettingsDialog.qml
-        HelpDialog.qml
-        ErrorDialog.qml
-    SOURCES 
-        Thingie.h Thingie.cpp 
-        ThingieListModel.h ThingieListModel.cpp 
-        ThingModel.h ThingModel.cpp
-        #FileListModel.h FileListModel.cpp
-        FileList.h FileList.cpp FileEntry.h
-        DataBaseModule.h DataBaseModule.cpp
-        UsnJournalMonitor.h UsnJournalMonitor.cpp
-        System.h System.cpp
-        RequestProcessor.h RequestProcessor.cpp
-        PathsProcessor.h PathsProcessor.cpp
-        TagsProcessor.h TagsProcessor.cpp
+    QML_FILES
+        qml/Main.qml
+        qml/Theme.qml
+        qml/components/ThemedButton.qml
+        qml/components/ThingTile.qml
+        qml/components/TagFlow.qml
+        qml/components/SearchLine.qml
+        qml/bars/TopBar.qml
+        qml/bars/BottomBar.qml
+        qml/panels/TagPanel.qml
+        qml/panels/FilePanel.qml
+        qml/dialogs/SettingsDialog.qml
+        qml/dialogs/HelpDialog.qml
+        qml/dialogs/ErrorDialog.qml
+    SOURCES
+        src/storage/Storage.h src/storage/Storage.cpp
+        src/platform/System.h src/platform/System.cpp
+        src/models/Thingie.h src/models/Thingie.cpp
+        src/models/ThingieListModel.h src/models/ThingieListModel.cpp
+        src/models/FileList.h src/models/FileList.cpp
+        src/models/FileEntry.h
+        src/platform/FileMonitor.h src/platform/FileMonitor.cpp
+        src/processors/RequestProcessor.h src/processors/RequestProcessor.cpp
+        src/processors/PathsProcessor.h src/processors/PathsProcessor.cpp
+        src/processors/TagsProcessor.h src/processors/TagsProcessor.cpp
+)
+
+target_include_directories(appuntitled PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/storage
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/platform
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/models
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/processors
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils
 )
 
 set_target_properties(appuntitled PROPERTIES

@@ -183,7 +183,8 @@ ApplicationWindow
                         id: tag_panel
 
                         search: search;
-                        thingModel: ThingModel.listOfThingies
+                        //thingModel: ThingModel.listOfThingies
+                        thingModel: ThingieListModel
                         dragOverlay: drag_overlay
 
                         addTagHighlight: win.addTagHighlight
@@ -205,7 +206,7 @@ ApplicationWindow
                         Layout.rightMargin: 6
                         Layout.leftMargin: 6
 
-                        tagModel: ThingModel.listOfThingies
+                        tagModel: ThingieListModel
 
                         renameMode: win.renameMode
                         editingPath: win.editingPath

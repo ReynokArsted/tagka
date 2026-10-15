@@ -29,12 +29,9 @@ public:
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
     int count() const { return m_entries.size(); }
-
     void setEntries(QVector<FileEntry> entries);
-    ///
     Q_INVOKABLE void renamePath(const QString &oldPath, const QString &newPath);
     Q_INVOKABLE void removePath(const QString &path);
-    ///
 
 signals:
     void countChanged();
