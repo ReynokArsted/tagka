@@ -34,7 +34,7 @@ Rectangle
 
     Connections
     {
-        target: UsnJournalMonitor
+        target: FileMonitor
         function onFilePathChanged(oldPath, newPath)
         {
             if (root.files) root.files.renamePath(oldPath, newPath)
@@ -269,7 +269,7 @@ Rectangle
 
                 Connections
                 {
-                    target: UsnJournalMonitor
+                    target: FileMonitor
                     function onFilePathChanged(oldPath, newPath)
                     {
                         if (newPath === card.path) card.refreshTagColors()
