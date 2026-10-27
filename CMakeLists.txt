@@ -37,6 +37,8 @@ qt_add_qml_module(appuntitled
         qml/components/ThingTile.qml
         qml/components/TagFlow.qml
         qml/components/SearchLine.qml
+        qml/components/ThemedMenu.qml
+        qml/components/ThemedMenuItem.qml
         qml/bars/TopBar.qml
         qml/bars/BottomBar.qml
         qml/panels/TagPanel.qml
@@ -45,6 +47,8 @@ qt_add_qml_module(appuntitled
         qml/dialogs/HelpDialog.qml
         qml/dialogs/ErrorDialog.qml
         qml/dialogs/ChooseCandidateDialog.qml
+        qml/dialogs/ConfirmDialog.qml
+        qml/dialogs/TagColorDialog.qml
     SOURCES
         src/storage/Storage.h src/storage/Storage.cpp
         src/platform/System.h src/platform/System.cpp

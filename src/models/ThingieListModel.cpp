@@ -13,7 +13,17 @@ void ThingieListModel::reload()
     qDeleteAll(_thingies);
     _thingies.clear();
     for (const auto &tag : _db->tags())
-        _thingies.append(new Thingie(tag.id, tag.name, this));
+    {
+        auto *thingie = new Thingie(tag.id, tag.name, this);
+
+        const QColor stored(tag.color);
+        if (stored.isValid())
+            thingie->setColor(stored);
+        else
+            _db->setTagColor(tag.id, thingie->color().name());
+
+        _thingies.append(thingie);
+    }
     endResetModel();
 }
 
@@ -29,12 +39,16 @@ QHash<int, QByteArray> ThingieListModel::roleNames() const
 
 void ThingieListModel::addThing(const QString &name)
 {
-    const int newId = _db->addTag(name);
+    const QColor color = Thingie::randomColor();
+    const int newId = _db->addTag(name, color.name());
     if (newId < 0) return;
+
+    auto *thingie = new Thingie(newId, name, this);
+    thingie->setColor(color);
 
     const int row = _thingies.size();
     beginInsertRows(QModelIndex(), row, row);
-    _thingies.append(new Thingie(newId, name, this));
+    _thingies.append(thingie);
     endInsertRows();
 }
 
@@ -78,6 +92,14 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
     return true;
 }
 
+bool ThingieListModel::removeAllTags(const QList<QString> &paths)
+{
+    if (paths.isEmpty() || !_db->removeFileTags(paths)) return false;
+
+    emit tagsAssigned(paths);
+    return true;
+}
+
 QVariant ThingieListModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid()) return QVariant();
@@ -109,6 +131,21 @@ QColor ThingieListModel::colorForId(int tagId) const
         return (*it)->color();
 
     return QColor(Qt::gray);
+}
+
+bool ThingieListModel::setThingColor(int tagId, const QColor &color)
+{
+    const auto it = std::find_if(_thingies.begin(), _thingies.end(),
+        [tagId](Thingie *t) { return t->id() == tagId; });
+    if (it == _thingies.end() || !color.isValid()) return false;
+
+    if (!_db->setTagColor(tagId, color.name())) return false;
+
+    (*it)->setColor(color);
+    const QModelIndex idx = index(static_cast<int>(it - _thingies.begin()));
+    emit dataChanged(idx, idx, { ColorRole });
+    emit tagColorChanged(tagId);
+    return true;
 }
 
 void ThingieListModel::move(int from, int to)

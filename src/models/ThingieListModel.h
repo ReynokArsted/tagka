@@ -34,11 +34,14 @@ public:
     Q_INVOKABLE void addThing(const QString &name);
     Q_INVOKABLE bool removeThing(int tagId);
     Q_INVOKABLE bool assignTagsToFile(const QList<QString> &paths, const QVariantList &tagIds);
+    Q_INVOKABLE bool removeAllTags(const QList<QString> &paths);
     Q_INVOKABLE QColor colorForId(int tagId) const;
+    Q_INVOKABLE bool setThingColor(int tagId, const QColor &color);
 
 signals:
     void newFileAdded(const QString &path);
     void tagsAssigned(const QStringList &paths);
+    void tagColorChanged(int tagId);
 
 private:
     QList<Thingie*> _thingies;

@@ -63,7 +63,7 @@ Rectangle
                         id: tooltip_text
 
                         text: help_tooltip.text
-                        color: "#142528"
+                        color: Theme.textColor
                         wrapMode: Text.WordWrap
                         
                         width: help_tooltip.width
@@ -85,6 +85,12 @@ Rectangle
                             id: canvas
 
                             anchors.fill: parent
+
+                            Connections
+                            {
+                                target: Theme
+                                function onIsDarkModeChanged() { canvas.requestPaint() }
+                            }
 
                             onPaint: 
                             {
@@ -115,10 +121,10 @@ Rectangle
                                 ctx.quadraticCurveTo(0, 0, r, 0)
                                 ctx.closePath()
 
-                                ctx.fillStyle = "#FDFDFD"
+                                ctx.fillStyle = Theme.fieldBackground
                                 ctx.fill()
 
-                                ctx.strokeStyle = "#142528"
+                                ctx.strokeStyle = Theme.textColor
                                 ctx.lineWidth = 2
                                 ctx.lineJoin = "round"
                                 ctx.stroke()

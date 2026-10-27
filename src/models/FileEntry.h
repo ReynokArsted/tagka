@@ -18,9 +18,10 @@ struct FileEntry
 
     static QVector<FileEntry> listDir
     (
-        const QString &dirPath, 
+        const QString &dirPath,
         QDir::SortFlags sort,
-        const QString &prefix = QString()
+        const QString &prefix = QString(),
+        bool showHidden = false
     )
     {
         QVector<FileEntry> out;
@@ -28,7 +29,11 @@ struct FileEntry
         if (!dir.exists())
             return out;
 
-        const QFileInfoList infos = dir.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot, sort);
+        QDir::Filters filters = QDir::AllEntries | QDir::NoDotAndDotDot;
+        if (showHidden)
+            filters |= QDir::Hidden | QDir::System;
+
+        const QFileInfoList infos = dir.entryInfoList(filters, sort);
         out.reserve(infos.size());
         for (const QFileInfo &fi : infos)
             if (prefix.isEmpty() || fi.fileName().startsWith(prefix, Qt::CaseSensitive))

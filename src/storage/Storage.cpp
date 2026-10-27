@@ -31,30 +31,41 @@ bool Storage::open()
 
 bool Storage::migrate()
 {
-    QSqlQuery q;
-    if (!run(q, "PRAGMA table_info(file)"))
-        return false;
-
-    QSet<QString> columns;
-    while (q.next())
-        columns.insert(q.value(1).toString());
-
-    const QList<QPair<QString, QString>> additions
+    const auto addColumns = [this](const QString &table, const QList<QPair<QString, QString>> &additions)
     {
-        { "size",   "ALTER TABLE file ADD COLUMN size INTEGER" },
-        { "sha256", "ALTER TABLE file ADD COLUMN sha256 TEXT" },
-        { "state",  "ALTER TABLE file ADD COLUMN state INTEGER NOT NULL DEFAULT 0" },
+        QSqlQuery q;
+        if (!run(q, QStringLiteral("PRAGMA table_info(%1)").arg(table)))
+            return false;
+
+        QSet<QString> columns;
+        while (q.next())
+            columns.insert(q.value(1).toString());
+
+        for (const auto &[name, ddl] : additions)
+        {
+            if (!columns.contains(name))
+            {
+                QSqlQuery alter;
+                if (!run(alter, ddl)) return false;
+            }
+        }
+        return true;
     };
 
-    for (const auto &[name, ddl] : additions)
-    {
-        if (!columns.contains(name))
-        {
-            QSqlQuery alter;
-            if (!run(alter, ddl)) return false;
-        }
-    }
-    return true;
+    QSqlQuery q;
+    return addColumns("file",
+           {
+               { "size",   "ALTER TABLE file ADD COLUMN size INTEGER" },
+               { "sha256", "ALTER TABLE file ADD COLUMN sha256 TEXT" },
+               { "state",  "ALTER TABLE file ADD COLUMN state INTEGER NOT NULL DEFAULT 0" },
+           })
+        && addColumns("tag",
+           {
+               { "color",  "ALTER TABLE tag ADD COLUMN color TEXT" },
+           })
+        && run(q, "CREATE TABLE IF NOT EXISTS user_set("
+                  "id INTEGER PRIMARY KEY CHECK(id = 1), "
+                  "flags INTEGER NOT NULL)");
 }
 
 QSqlDatabase Storage::database() const
@@ -119,20 +130,83 @@ QList<Storage::Tag> Storage::tags() const
 {
     QList<Tag> result;
     QSqlQuery q;
-    if (!run(q, "SELECT id, tag_name FROM tag"))
+    if (!run(q, "SELECT id, tag_name, COALESCE(color, '') FROM tag"))
         return result;
 
     while (q.next())
-        result.push_back({ q.value(0).toInt(), q.value(1).toString() });
+        result.push_back({ q.value(0).toInt(), q.value(1).toString(), q.value(2).toString() });
     return result;
 }
 
-int Storage::addTag(const QString &name)
+int Storage::addTag(const QString &name, const QString &color)
 {
+    const QVariant colorValue = color.isEmpty() ? QVariant(QMetaType(QMetaType::QString))
+                                                : QVariant(color);
     QSqlQuery q;
-    if (!run(q, "INSERT INTO tag(tag_name) VALUES(:name)", { {":name", name} }))
+    if (!run(q, "INSERT INTO tag(tag_name, color) VALUES(:name, :color)",
+             { {":name", name}, {":color", colorValue} }))
         return -1;
     return q.lastInsertId().toInt();
+}
+
+bool Storage::setTagColor(int tagId, const QString &color)
+{
+    QSqlQuery q;
+    return run(q, "UPDATE tag SET color = :color WHERE id = :id",
+               { {":color", color}, {":id", tagId} });
+}
+
+namespace
+{
+    const QList<QPair<QString, Storage::UserSetBit>> &userSetKeys()
+    {
+        static const QList<QPair<QString, Storage::UserSetBit>> keys
+        {
+            { "darkMode",           Storage::DarkMode },
+            { "english",            Storage::English },
+            { "showDeleteWarnings", Storage::DeleteWarnings },
+            { "showHiddenFiles",    Storage::ShowHiddenFiles },
+        };
+        return keys;
+    }
+}
+
+qint64 Storage::userSet() const
+{
+    QSqlQuery q;
+    if (!run(q, "SELECT flags FROM user_set WHERE id = 1") || !q.next())
+        return DefaultUserSet;
+    return q.value(0).toLongLong();
+}
+
+bool Storage::saveUserSet(qint64 flags)
+{
+    QSqlQuery q;
+    return run(q, "INSERT OR REPLACE INTO user_set(id, flags) VALUES(1, :flags)",
+               { {":flags", flags} });
+}
+
+QVariantMap Storage::userSettings() const
+{
+    const qint64 flags = userSet();
+    QVariantMap result;
+    for (const auto &[key, bit] : userSetKeys())
+        result.insert(key, (flags & (qint64(1) << bit)) != 0);
+    return result;
+}
+
+bool Storage::setUserSettings(const QVariantMap &settings)
+{
+    qint64 flags = userSet();
+    for (const auto &[key, bit] : userSetKeys())
+    {
+        if (!settings.contains(key)) continue;
+
+        const qint64 mask = qint64(1) << bit;
+        if (settings.value(key).toBool()) flags |= mask;
+        else                              flags &= ~mask;
+    }
+    return saveUserSet(flags);
 }
 
 bool Storage::removeTag(int tagId)
@@ -219,6 +293,22 @@ std::optional<QStringList> Storage::assignTags
     if (ok)
         result = created;
     return result;
+}
+
+bool Storage::removeFileTags(const QList<QString> &paths)
+{
+    bool ok = beginTransaction();
+    if (ok)
+    {
+        QSqlQuery q(database());
+        bool done = true;
+        for (auto it = paths.cbegin(); done && it != paths.cend(); ++it)
+            done = run(q, "DELETE FROM tag_file "
+                          "WHERE file_id IN (SELECT id FROM file WHERE path = :path)",
+                       { {":path", *it} });
+        ok = endTransaction(done);
+    }
+    return ok;
 }
 
 bool Storage::insertMissingFiles

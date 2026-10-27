@@ -24,6 +24,9 @@ public:
     Q_INVOKABLE void openWith(const QString &filePath, QQuickWindow *window);
     Q_INVOKABLE void openFile(const QString &filePath, QQuickWindow *window);
 
+    Q_INVOKABLE QString renameFile(const QString &filePath, const QString &newName);
+    Q_INVOKABLE QStringList moveToTrash(const QStringList &paths);
+
     struct UsnEvent
     {
         QByteArray fileId;

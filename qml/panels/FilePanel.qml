@@ -95,7 +95,7 @@ Rectangle
         shadowVerticalOffset: 3
     }
 
-    Menu
+    ThemedMenu
     {
         id: single_selection_menu
 
@@ -103,7 +103,7 @@ Rectangle
         property string currentName: ""
         property bool currentIsDir: false
 
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Задать метки")
             onTriggered:
@@ -112,7 +112,7 @@ Rectangle
                 root.clearSelection()
             }
         }
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Открыть")
             onTriggered: 
@@ -124,7 +124,7 @@ Rectangle
                 )
             }
         }
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Открыть с помощью ...")
             onTriggered:
@@ -135,7 +135,7 @@ Rectangle
                     system.openWith(single_selection_menu.currentPath, root.Window.window)
             }
         }
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Переименовать")
             onTriggered: 
@@ -147,24 +147,24 @@ Rectangle
                 )
             }
         }
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Удалить все метки")
             onTriggered: root.deleteTagsRequested([single_selection_menu.currentPath])
         }
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Удалить")
             onTriggered: root.deleteRequested([single_selection_menu.currentPath])
         }
     }
-    Menu
+    ThemedMenu
     {
         id: multi_selection_menu
 
         property string currentName: ""
 
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Задать метки")
             onTriggered: root.tagRequested
@@ -173,12 +173,12 @@ Rectangle
                 multi_selection_menu.currentName
             )
         }
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Удалить все метки")
             onTriggered: root.deleteTagsRequested(root.selectedFiles)
         }
-        MenuItem
+        ThemedMenuItem
         {
             text: qsTr("Удалить")
             onTriggered: root.deleteRequested(root.selectedFiles)
@@ -215,6 +215,7 @@ Rectangle
                 width: ListView.view.width
                 height: 36
                 radius: 8
+                color: Theme.backgroundColor
                 border.color: selected ? Theme.accentColor : Theme.borderColor
                 border.width: selected ? 2 : 1
 
@@ -243,6 +244,10 @@ Rectangle
                     {
                         if (paths.indexOf(card.path) !== -1)
                             card.refreshTagColors()
+                    }
+                    function onTagColorChanged(tagId)
+                    {
+                        card.refreshTagColors()
                     }
                 }
 

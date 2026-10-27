@@ -79,16 +79,91 @@ ApplicationWindow
         renameMode = true
     }
 
-    function commitRename(newName) 
+    function commitRename(newName)
     {
+        const path = editingPath
+        const oldName = editingName
         const trimmed = newName.trim()
-        if (trimmed !== "" && editingPath !== "") 
-        {
-            console.log("Rename: ", editingPath, " -> ", trimmed)
-        }
+
         renameMode = false
         editingPath = ""
         editingName = ""
+
+        if (path === "" || trimmed === "" || trimmed === oldName)
+            return
+
+        const newPath = system.renameFile(path, trimmed)
+        if (newPath === "")
+        {
+            showError(qsTr("Не удалось переименовать «%1» в «%2»").arg(oldName).arg(trimmed))
+            return
+        }
+
+        search.files.renamePath(path, newPath)
+        file_panel.selectOnly(newPath)
+    }
+
+    function showError(message)
+    {
+        file_find_error_dialog.message = message
+        file_find_error_dialog.critical = false
+        file_find_error_mode = true
+    }
+
+    function fileNameOf(path)
+    {
+        return path.substring(path.lastIndexOf("/") + 1)
+    }
+
+    function confirmDelete(text, action)
+    {
+        if (settings_dialog.showDeleteWarnings)
+            confirm_dialog.ask(text, action)
+        else
+            action()
+    }
+
+    function requestDeleteTags(paths)
+    {
+        if (!paths || paths.length === 0)
+            return
+
+        const text = paths.length === 1
+            ? qsTr("Удалить все метки у файла «%1»?").arg(fileNameOf(paths[0]))
+            : qsTr("Удалить все метки у выбранных файлов (%1)?").arg(paths.length)
+
+        confirmDelete(text, function()
+        {
+            if (!ThingieListModel.removeAllTags(paths))
+                showError(qsTr("Не удалось удалить метки"))
+            file_panel.clearSelection()
+        })
+    }
+
+    function requestDelete(paths)
+    {
+        if (!paths || paths.length === 0)
+            return
+
+        const text = paths.length === 1
+            ? qsTr("Переместить файл «%1» в корзину? Все его метки будут удалены").arg(fileNameOf(paths[0]))
+            : qsTr("Переместить выбранные файлы (%1) в корзину? Все их метки будут удалены").arg(paths.length)
+
+        confirmDelete(text, function()
+        {
+            const removed = system.moveToTrash(paths)
+
+            if (removed.length > 0 && !ThingieListModel.removeAllTags(removed))
+                showError(qsTr("Файлы удалены, но их метки удалить не удалось"))
+
+            for (let i = 0; i < removed.length; i++)
+                search.files.removePath(removed[i])
+            file_panel.clearSelection()
+
+            if (removed.length !== paths.length)
+                showError(qsTr("Не удалось удалить %1 из %2 элементов")
+                          .arg(paths.length - removed.length).arg(paths.length))
+        })
     }
 
     function cancelRename() 
@@ -177,6 +252,24 @@ ApplicationWindow
                         }
                     }
 
+                    Binding
+                    {
+                        target: search.paths
+                        property: "showHidden"
+                        value: settings_dialog.showHiddenFiles
+                    }
+
+                    Connections
+                    {
+                        target: search.paths
+                        function onShowHiddenChanged()
+                        {
+                            const input = tag_panel.tagInput.text
+                            if (input.indexOf("#") === -1)
+                                search.doRequest(input)
+                        }
+                    }
+
                     TagPanel 
                     {
                         id: tag_panel
@@ -225,8 +318,8 @@ ApplicationWindow
                         onRenameRequested: (path, name) => win.startRename(path, name)
                         onRenameCommitted: (newName) => win.commitRename(newName)
                         onRenameCancelled: win.cancelRename()
-                        onDeleteTagsRequested: (paths) => console.log("Delete all tags for:", paths)
-                        onDeleteRequested: (paths) => console.log("Delete files:", paths)
+                        onDeleteTagsRequested: (paths) => win.requestDeleteTags(paths)
+                        onDeleteRequested: (paths) => win.requestDelete(paths)
                     }
                 }
 
@@ -246,6 +339,7 @@ ApplicationWindow
                     onClosed: win.file_find_error_mode = false 
                 }
                 ChooseCandidateDialog { id: choose_candidate_dialog }
+                ConfirmDialog { id: confirm_dialog }
             }
 
             Example.BottomBar
