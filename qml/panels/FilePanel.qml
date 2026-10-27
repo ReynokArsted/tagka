@@ -127,19 +127,6 @@ Rectangle
         MenuItem
         {
             text: qsTr("Открыть с помощью ...")
-            // onTriggered:
-            // {
-            //     if (single_selection_menu.currentIsDir)
-            //         root.openFolder(single_selection_menu.currentPath)
-            //     else
-            //         // root.fileModel.openWith
-            //         system.openWith
-            //         (
-            //             single_selection_menu.currentPath, 
-            //             root.Window.window
-            //         )
-            //         openWithRequested(single_selection_menu.currentPath)
-            // }
             onTriggered:
             {
                 if (single_selection_menu.currentIsDir)
@@ -211,7 +198,6 @@ Rectangle
             Layout.fillHeight: true
             clip: true
             spacing: 6
-            //model: root.fileModel ? root.fileModel.get_files : null
             model: root.files
 
             delegate: Rectangle
@@ -220,16 +206,11 @@ Rectangle
 
                 property bool pressed: false
                 property var tagColors: []
-                //property string path: modelData.path
-                //property string name: modelData.name
-                //property bool isDir: modelData.isDir
                 readonly property bool selected: root.selectedFiles.indexOf(path) !== -1
-///
                 required property int index
                 required property string path
                 required property string name
                 required property bool isDir
-///
 
                 width: ListView.view.width
                 height: 36
@@ -244,10 +225,8 @@ Rectangle
 
                 function refreshTagColors()
                 {
-                    //if (!root.fileModel || !root.tagModel)
                     if (!root.tagQuery || !root.tagModel)
                         return
-                    //const ids = root.fileModel.tagIdsForFile([path])
                     const ids = root.tagQuery.tagIdsForFile([path])
                     const colors = []
                     for (var i = 0; i < ids.length; i++)

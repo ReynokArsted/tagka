@@ -54,7 +54,6 @@ Rectangle
                     delay: 1000
                     timeout: 5000
                     text: qsTr("tip test")
-                    //text: qsTr("loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong tip test")
 
                     x: (help_button.width - width) / 2
                     y: -height - 8

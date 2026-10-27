@@ -14,7 +14,6 @@ QString normalizeDirPath(QString s)
     return s;
 }
 
-// "C:/dir/pre" -> {"C:/dir/", "pre"}
 InputParts splitInput(const QString &input)
 {
     const QString norm = normalizeDirPath(input);

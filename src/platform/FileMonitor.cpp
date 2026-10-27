@@ -1,356 +1,262 @@
 #include "FileMonitor.h"
 
-#include <QCoreApplication>
 #include <QDebug>
-#include <QDir>
+#include <QElapsedTimer>
 #include <QFileInfo>
-#include <cstring>
+#include <optional>
 
 #include "Storage.h"
-#include "System.h"
 
-QByteArray FileMonitor::fileId128ToBytes(const FILE_ID_128 &id)
+namespace
 {
-    return QByteArray(reinterpret_cast<const char *>(id.Identifier), sizeof(id.Identifier));
-}
+    constexpr DWORD kJournalReasonMask =
+        USN_REASON_RENAME_OLD_NAME |
+        USN_REASON_RENAME_NEW_NAME |
+        USN_REASON_FILE_DELETE |
+        USN_REASON_DATA_OVERWRITE |
+        USN_REASON_DATA_EXTEND |
+        USN_REASON_DATA_TRUNCATION |
+        USN_REASON_CLOSE;
 
-QByteArray FileMonitor::fileId128ToBytes(DWORDLONG fileReference)
-{
-    FILE_ID_128 id{};
-    memcpy
-    (
-        id.Identifier,
-        &fileReference,
-        sizeof(fileReference)
-    );
-    return QByteArray
-    (
-        reinterpret_cast<const char*>(id.Identifier),
-        sizeof(id.Identifier)
-    );
-}
-
-FILE_ID_128 FileMonitor::bytesToFileId128(const QByteArray &bytes)
-{
-    FILE_ID_128 id{};
-    if (bytes.size() == static_cast<int>(sizeof(id.Identifier)))
-        memcpy(id.Identifier, bytes.constData(), sizeof(id.Identifier));
-    return id;
-}
-
-QByteArray FileMonitor::currentSystemIdForPath(const QString &path)
-{
-    return System::fileId128ForPath(path);
-}
-
-QString FileMonitor::getPathByHandle(HANDLE handle)
-{
-    return System::pathByHandle(handle);
-}
-
-HANDLE  FileMonitor::openVolumeHandle(const QString &p)
-{
-    return System::openVolumeHandle(p);
+    bool isTrashPath(const QString &p)
+    {
+        return p.contains(QStringLiteral("/$Recycle.Bin/"), Qt::CaseInsensitive)
+            || p.contains(QStringLiteral("/RECYCLER/"), Qt::CaseInsensitive);
+    }
 }
 
 FileMonitor::FileMonitor(Storage *db, QObject *parent)
-    : QThread(parent), db_(db)
+    : QThread(parent), db_(db), volumes_(db),
+      hasher_(db, volumes_, watched_, pool_, stopping_),
+      resolver_(db, volumes_, watched_, hasher_, pool_, stopping_)
 {
-    loadVolumes();
-    reconcileStartup();
+    qRegisterMetaType<JournalPositions>("JournalPositions");
+
+    connect(&resolver_, &MoveResolver::fileDeleted, this, &FileMonitor::fileDeleted);
+    connect(&resolver_, &MoveResolver::filePathChanged, this, &FileMonitor::filePathChanged);
+
+    pool_.setMaxThreadCount(2);
+    volumes_.refresh();
+    checkFilesState();
+    startTimer(3000);
 }
 
 FileMonitor::~FileMonitor()
 {
+    stopping_ = true;
     requestInterruption();
     wait();
-
-    for (auto &wf : watched_)
-        System::closeHandle(wf.handle);
-
-    for (auto &vol : volumes_)
-        if (const auto usn = System::queryNextUsn(vol.handle))
-            vol.lastUsn = *usn;
-
-    saveJournalState();
-
-    for (auto &vol : volumes_)
-        System::closeHandle(vol.handle);
+    pool_.waitForDone();
 }
 
-void FileMonitor::loadVolumes()
+int FileMonitor::volumeIdForPath(const QString &path)
 {
-    for (const auto &v : db_->volumes())
+    const QString guid = System::volumeGuidForPath(path);
+    int id = volumes_.idByGuid(guid);
+    if (id == 0)
     {
-        VolumeInfo info;
-        info.id = v.id;
-        info.guidPath = v.guid;
-        info.handle = System::openVolumeHandle(v.guid);
-        info.lastUsn = static_cast<USN>(v.lastUsn);
-        volumes_.insert(info.id, info);
+        refreshVolumes();
+        id = volumes_.idByGuid(guid);
+    }
+    return id;
+}
+
+void FileMonitor::timerEvent(QTimerEvent *)
+{
+    refreshVolumes();
+}
+
+void FileMonitor::refreshVolumes()
+{
+    for (const int id : volumes_.refresh())
+    {
+        qDebug() << "-> volume available:" << id;
+        checkFilesState(id);
     }
 }
 
-void FileMonitor::saveJournalState()
+bool FileMonitor::addFile(const QString &path)
 {
-    for (const VolumeInfo &vol : std::as_const(volumes_))
-        if (db_->saveJournalState(vol.id, static_cast<qlonglong>(vol.lastUsn)))
-            qDebug() << "volume" << vol.guidPath << "last record"
-                     << static_cast<qlonglong>(vol.lastUsn) << "saved";
-}
+    const int volumeId = volumeIdForPath(path);
+    const QByteArray id = System::fileId128ForPath(path);
+    if (volumeId == 0 || id.isEmpty()) return false;
+    if (!watched_.add(volumeId, id, path)) return false;
 
-FileMonitor::VolumeInfo *FileMonitor::volumeById(int id)
-{
-    auto it = volumes_.find(id);
-    return it == volumes_.end() ? nullptr : &it.value();
-}
-
-bool FileMonitor::reopenById
-(
-    const VolumeInfo &vol,
-    const QByteArray &systemId,
-    QString &currentPath
-) const
-{
-    currentPath = System::pathByFileId(vol.handle, systemId);
-    return !currentPath.isEmpty();
-}
-
-FileMonitor::Fate FileMonitor::traceFateFromJournal
-(
-    const QByteArray &systemId,
-    const QString &fileName,
-    int originVolumeId,
-    QByteArray &newSystemId,
-    QString &newPath,
-    int &newVolumeId
-)
-{
-    VolumeInfo *origin = volumeById(originVolumeId);
-    if (!origin) return Fate::Unchanged;
-
-    bool deleteFound = false;
-    qint64 deleteTime = 0;
-
-    System::scanUsnJournal
-    (
-        origin->handle, origin->lastUsn, USN_REASON_FILE_DELETE,
-        [&](const System::UsnEvent &e)
-        {
-            if (e.fileId != systemId) return true;
-
-            deleteFound = true;
-            deleteTime = e.timestamp;
-            return false;
-        }
-    );
-
-    if (!deleteFound)
-    {
-        qDebug() << "WARN: no delete record found for" << systemId.toHex()
-                 << "on volume" << originVolumeId;
-        return Fate::Unchanged;
-    }
-
-    for (auto &vol : volumes_)
-    {
-        if (vol.id == originVolumeId) continue;
-
-        bool created = false;
-        QByteArray createdId;
-
-        System::scanUsnJournal
-        (
-            vol.handle, vol.lastUsn, USN_REASON_FILE_CREATE,
-            [&](const System::UsnEvent &e)
-            {
-                if (e.timestamp < deleteTime) return true;
-                if (e.name.compare(fileName, Qt::CaseInsensitive) != 0) return true;
-
-                created = true;
-                createdId = e.fileId;
-                return false;
-            }
-        );
-
-        if (created)
-        {
-            newSystemId = createdId;
-            newVolumeId = vol.id;
-
-            const QString path = System::pathByFileId(vol.handle, newSystemId);
-            if (!path.isEmpty()) newPath = path;
-
-            return Fate::Moved;
-        }
-    }
-    return Fate::Deleted;
-}
-
-void FileMonitor::reconcileStartup()
-{
-    for (const auto &row : db_->files())
-    {
-        VolumeInfo *vol = volumeById(row.volumeId);
-        if (!vol)
-        {
-            qDebug() << "WARN: unknown volume_id" << row.volumeId << "for" << row.path;
-            continue;
-        }
-
-        const QString actualPath = System::pathByFileId(vol->handle, row.systemId);
-        const bool stillOnVolume = !actualPath.isEmpty();
-
-        if (stillOnVolume)
-        {
-            if (actualPath.compare(row.path, Qt::CaseInsensitive) != 0)
-            {
-                qDebug() << "-> path changed:" << row.path << "->" << actualPath;
-                db_->replaceFile(row.systemId, Storage::FileRecord{ actualPath, row.systemId, row.volumeId });
-            }
-
-            addWatch(row.systemId, actualPath, row.volumeId);
-            continue;
-        }
-
-        QByteArray newSystemId;
-        QString newPath;
-        int newVolumeId = 0;
-
-        Fate fate = traceFateFromJournal
-        (
-            row.systemId,
-            QFileInfo(row.path).fileName(),
-            row.volumeId,
-            newSystemId,
-            newPath,
-            newVolumeId
-        );
-
-        switch (fate)
-        {
-            case Fate::Moved:
-                qDebug() << "-> file moved to another volume:" << row.path << "->" << newPath;
-                db_->replaceFile(row.systemId, Storage::FileRecord{ newPath, newSystemId, newVolumeId });
-                addWatch(newSystemId, newPath, newVolumeId);
-                break;
-            case Fate::Deleted:
-                qDebug() << "-> file deleted from system:" << row.path;
-                db_->replaceFile(row.systemId, std::nullopt);
-                emit fileDeleted(row.path, row.systemId);
-                break;
-            case Fate::Unchanged:
-                break;
-        }
-    }
-}
-
-bool FileMonitor::addFile(const QString &path, int volumeId)
-{
-    const QByteArray systemId = System::fileId128ForPath(path);
-    if (systemId.isEmpty()) return false;
-    return addWatch(systemId, path, volumeId);
-}
-
-bool FileMonitor::addWatch(const QByteArray &systemId, const QString &path, int volumeId)
-{
-    HANDLE handle = System::openFileForWatch(path);
-    if (!System::isValidHandle(handle)) return false;
-
-    WatchedFile wf;
-    wf.systemId = systemId;
-    wf.handle = handle;
-    wf.path = QFileInfo(path).absoluteFilePath();
-    wf.volumeId = volumeId;
-
-    watched_.insert(systemId, wf);
+    hasher_.schedule(volumeId, id);
     return true;
 }
 
 void FileMonitor::onNewFileAdded(const QString &path)
 {
-    if (!addFile(path, 1))
+    if (!addFile(path))
         qWarning() << "WARN: cannot watch" << path;
 }
 
-void FileMonitor::processEvent(const System::UsnEvent &e)
+void FileMonitor::checkFilesState(int onlyVolumeId)
 {
-    const QByteArray &fileId = e.fileId;
+    const bool all = onlyVolumeId == 0;
 
-    auto it = watched_.find(fileId);
-    if (it == watched_.end()) return;
-
-    qDebug() << "-> USN record: fileId =" << fileId.toHex()
-             << "reason =" << Qt::hex << e.reason << "name =" << e.name;
-
-    if (e.reason & USN_REASON_RENAME_OLD_NAME)
-        return;
-
-    if (e.reason & USN_REASON_RENAME_NEW_NAME)
+    for (const auto &row : db_->files())
     {
-        const QString oldPath = it->path;
-        const QString newPath = System::pathByHandle(it->handle);
-        qDebug() << "-> rename new:" << oldPath << "->" << newPath;
-        if (newPath.isEmpty() || newPath == oldPath) return;
-
-        it->path = newPath;
-        const int volumeId = it->volumeId;
-        QMetaObject::invokeMethod(this, [this, fileId, oldPath, newPath, volumeId]()
-        {
-            qDebug() << "-> apply rename" << newPath;
-            db_->replaceFile(fileId, Storage::FileRecord{ newPath, fileId, volumeId });
-            emit filePathChanged(oldPath, newPath);
-        }, Qt::QueuedConnection);
-        return;
+        const bool wanted = all || (row.state != Storage::AwaitingChoice
+                                    && (row.volumeId == onlyVolumeId || row.state == Storage::AwaitingVolume));
+        if (wanted)
+            checkFileState(row);
     }
+}
+
+void FileMonitor::checkFileState(const Storage::FileRecord &row)
+{
+    const HANDLE volumeHandle = volumes_.handleOf(row.volumeId);
+    if (!System::isValidHandle(volumeHandle))
+    {
+        qDebug() << "WARN: volume" << row.volumeId << "unavailable for" << row.path;
+    }
+    else
+    {
+        const QString actualPath = System::pathByFileId(volumeHandle, row.systemId);
+        if (!actualPath.isEmpty())
+        {
+            restoreWatched(row, actualPath);
+        }
+        else
+        {
+            WatchedFile lost;
+            lost.systemId = row.systemId;
+            lost.path = row.path;
+            lost.userPath = row.path;
+            lost.volumeId = row.volumeId;
+            lost.size = row.size;
+            lost.sha256 = row.sha256;
+            resolver_.resolvePath(lost);
+        }
+    }
+}
+
+void FileMonitor::restoreWatched(const Storage::FileRecord &row, const QString &actualPath)
+{
+    if (isTrashPath(actualPath))
+    {
+        if (watched_.add(row.volumeId, row.systemId, actualPath))
+            watched_.setTrash(row.volumeId, row.systemId, true, actualPath, row.path);
+    }
+    else
+    {
+        if (actualPath.compare(row.path, Qt::CaseInsensitive) != 0)
+        {
+            qDebug() << "-> path changed:" << row.path << "->" << actualPath;
+            db_->replaceFile(row.volumeId, row.systemId,
+                             Storage::FileRecord{ actualPath, row.systemId, row.volumeId });
+        }
+        watched_.add(row.volumeId, row.systemId, actualPath);
+    }
+
+    watched_.setHash(row.volumeId, row.systemId, row.size, row.sha256);
+    if (row.sha256.isEmpty()) hasher_.schedule(row.volumeId, row.systemId);
+    if (row.state != Storage::Tracked)
+        db_->setState(row.volumeId, row.systemId, Storage::Tracked);
+}
+
+void FileMonitor::processEvent(int volumeId, const System::UsnEvent &e)
+{
+    const WatchedFile wf = watched_.find(volumeId, e.fileId);
+    if (!wf.isValid()) return;
+
+    constexpr DWORD dataMask =
+        USN_REASON_DATA_OVERWRITE | USN_REASON_DATA_EXTEND | USN_REASON_DATA_TRUNCATION;
 
     if (e.reason & USN_REASON_FILE_DELETE)
     {
-        const QString path = it->path;
-        System::closeHandle(it->handle);
-        watched_.erase(it);
-        pendingRenames_.remove(fileId);
-
-        QMetaObject::invokeMethod(this, [this, fileId, path]()
-        {
-            db_->replaceFile(fileId, std::nullopt);
-            emit fileDeleted(path, fileId);
-        }, Qt::QueuedConnection);
+        watched_.remove(wf.volumeId, wf.systemId);
+        resolver_.resolvePath(wf);
     }
+    else if (!(e.reason & USN_REASON_RENAME_OLD_NAME))
+    {
+        if (e.reason & USN_REASON_RENAME_NEW_NAME) onRenamed(wf);
+        if (e.reason & dataMask)                   onModified(wf, e.reason & USN_REASON_CLOSE);
+    }
+}
+
+void FileMonitor::onRenamed(const WatchedFile &wf)
+{
+    const QString newPath = System::pathByFileId(volumes_.handleOf(wf.volumeId), wf.systemId);
+    if (newPath.isEmpty() || newPath.compare(wf.path, Qt::CaseInsensitive) == 0) return;
+
+    const QString shown = wf.shownPath();
+
+    if (isTrashPath(newPath))
+    {
+        watched_.setTrash(wf.volumeId, wf.systemId, true, newPath, shown);
+        return;
+    }
+
+    watched_.setTrash(wf.volumeId, wf.systemId, false, newPath, newPath);
+    if (newPath.compare(shown, Qt::CaseInsensitive) == 0) return;
+
+    QMetaObject::invokeMethod(this, "storePathChange", Qt::QueuedConnection,
+                              Q_ARG(int, wf.volumeId), Q_ARG(QByteArray, wf.systemId),
+                              Q_ARG(QString, shown), Q_ARG(QString, newPath));
+}
+
+void FileMonitor::storePathChange(int volumeId, const QByteArray &systemId,
+                                  const QString &shown, const QString &newPath)
+{
+    db_->replaceFile(volumeId, systemId, Storage::FileRecord{ newPath, systemId, volumeId });
+    emit filePathChanged(shown, newPath);
+}
+
+void FileMonitor::onModified(const WatchedFile &wf, bool closed)
+{
+    hasher_.invalidate(wf.volumeId, wf.systemId);
+
+    if (closed) hasher_.schedule(wf.volumeId, wf.systemId);
+}
+
+void FileMonitor::storeJournalPositions(const JournalPositions &positions)
+{
+    for (const auto &p : positions)
+        db_->saveJournalState(p.first, p.second);
 }
 
 void FileMonitor::run()
 {
-    constexpr DWORD reasonMask =
-        USN_REASON_RENAME_OLD_NAME |
-        USN_REASON_RENAME_NEW_NAME |
-        USN_REASON_FILE_DELETE;
+    QElapsedTimer saveTimer;
+    saveTimer.start();
 
     while (!isInterruptionRequested())
     {
-        bool anyVolume = false;
-
-        for (auto &vol : volumes_)
         {
-            if (!System::isValidHandle(vol.handle)) continue;
-            anyVolume = true;
-
-            if (!vol.lastUsn)
-            {
-                const auto n = System::queryNextUsn(vol.handle);
-                if (!n) continue;
-                vol.lastUsn = *n;
-            }
-
-            if (const auto next = System::scanUsnJournal
-            (
-                vol.handle, vol.lastUsn, reasonMask,
-                [this](const System::UsnEvent &e) { processEvent(e); return true; }
-            ))
-                vol.lastUsn = *next;
+            QMutexLocker lock(&volumes_.mutex());
+            for (VolumeInfo &vol : volumes_.all())
+                pollVolume(vol);
         }
 
-        if (!anyVolume) break;
+        if (saveTimer.elapsed() > 5000)
+        {
+            QMetaObject::invokeMethod(this, "storeJournalPositions", Qt::QueuedConnection,
+                                      Q_ARG(JournalPositions, volumes_.positions()));
+            saveTimer.restart();
+        }
         msleep(200);
     }
+}
+
+void FileMonitor::pollVolume(VolumeInfo &vol)
+{
+    if (!System::isValidHandle(vol.handle)) return;
+
+    if (!vol.lastUsn)
+    {
+        const USN start = System::queryNextUsn(vol.handle);
+        if (!System::isValidUsn(start)) return;
+        vol.lastUsn = start;
+    }
+
+    System::UsnReader reader(vol.handle, vol.lastUsn, kJournalReasonMask);
+    System::UsnEvent event;
+    while (reader.next(event))
+        processEvent(vol.id, event);
+
+    const USN next = reader.position();
+    if (System::isValidUsn(next)) vol.lastUsn = next;
 }

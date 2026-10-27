@@ -30,7 +30,6 @@ bool isTag(const QString &tag)
     return true;
 }
 
-// 1. Check brace balance and add spaces around operators
 bool spaceOperators(QString &temp)
 {
     QVector<int> brace_balances;
@@ -87,7 +86,6 @@ bool spaceOperators(QString &temp)
     return true;
 }
 
-// 2. Check operands count
 bool hasMissingOperand(const QStringList &tl)
 {
     const int n = tl.length();
@@ -109,12 +107,11 @@ bool hasMissingOperand(const QStringList &tl)
     return false;
 }
 
-// 3. Delete redundant braces
 void stripRedundantBraces(QStringList &tl)
 {
     for (int i = 1; i < tl.length() - 1; i++)
     {
-        if (tl[i].contains(QLatin1Char('#')))   // #cat + (#iron + (#cat) ()) \ #chest ()
+        if (tl[i].contains(QLatin1Char('#')))
         {
             int k = 1;
             bool braces_is_here = true;
@@ -138,7 +135,6 @@ void stripRedundantBraces(QStringList &tl)
     tl.removeAll(QStringLiteral(" "));
 }
 
-// 4. Insert implicit operators
 bool insertImplicitOperators(QStringList &tl)
 {
     auto operand_end   = [](const QString &s) { return isTag(s) || s == kClose; };
@@ -170,7 +166,6 @@ bool insertImplicitOperators(QStringList &tl)
     return !error_was_found;
 }
 
-// 5. Execute operations
 QVector<QVector<int>> planOperations(const QStringList &tl)
 {
     QVector<QVector<int>> operations_list;
@@ -255,7 +250,6 @@ QSet<QString> operandSet
     return {};
 }
 
-// 6. Do operations
 QVector<QSet<QString>> evaluate
 (
     QStringList &tl,

@@ -15,24 +15,28 @@
 class Storage : public QObject
 {
     Q_OBJECT
-
 public:
+    enum State { Tracked = 0, AwaitingChoice = 1, AwaitingVolume = 2 };
+
     struct Tag
-    { 
-        int id; 
-        QString name; 
+    {
+        int id;
+        QString name;
     };
     struct Volume
-    { 
-        int id; 
-        QString guid; 
-        qint64 lastUsn; 
+    {
+        int id;
+        QString guid;
+        qint64 lastUsn;
     };
     struct FileRecord
-    { 
-        QString path; 
-        QByteArray systemId; 
-        int volumeId; 
+    {
+        QString path;
+        QByteArray systemId;
+        int volumeId;
+        qint64 size = 0;
+        QByteArray sha256;
+        int state = Tracked;
     };
 
     explicit Storage(QObject *parent = nullptr);
@@ -40,29 +44,46 @@ public:
     bool open();
 
     QList<Tag> tags() const;
-    int  addTag(const QString &name);           
-    bool removeTag(int tagId);                  
+    int  addTag(const QString &name);
+    bool removeTag(int tagId);
 
     std::optional<QSet<QString>> filesForTag(const QString &tagName) const;
     QSet<int> commonTagIds(const QList<QString> &paths) const;
+
     std::optional<QStringList> assignTags
     (
-        const QList<QString> &paths, 
+        const QList<QString> &paths,
         const QSet<int> &desired,
         const std::function<QByteArray(const QString &)> &systemId,
-        int volumeId
+        const std::function<int(const QString &)> &volumeOf
     );
 
     QList<FileRecord> files() const;
-    bool replaceFile(const QByteArray &oldSystemId, const std::optional<FileRecord> &state);
+
+    bool replaceFile(int oldVolumeId, const QByteArray &oldSystemId,
+                     const std::optional<FileRecord> &state);
+    bool setHash(int volumeId, const QByteArray &systemId, qint64 size, const QByteArray &sha256);
+    bool setState(int volumeId, const QByteArray &systemId, int state);
 
     QList<Volume> volumes() const;
+    int volumeIdByGuid(const QString &guidPath) const;
+    int addVolume(const QString &guidPath);
     bool saveJournalState(int volumeId, qint64 usn);
 
 private:
     QSqlDatabase database() const;
+    bool migrate();
     bool run(QSqlQuery &q, const QString &sql, const QVariantMap &binds = {}) const;
-    bool inTransaction(const std::function<bool(QSqlQuery &)> &body) const;
+    bool beginTransaction() const;
+    bool endTransaction(bool commit) const;
+
+    bool insertMissingFiles
+    (
+        QSqlQuery &q, const QList<QString> &paths, QStringList &created,
+        const std::function<QByteArray(const QString &)> &systemId,
+        const std::function<int(const QString &)> &volumeOf
+    ) const;
+    bool syncTags(QSqlQuery &q, const QList<QString> &paths, const QSet<int> &desired) const;
 
     QString m_connectionName = "app_connection";
 };

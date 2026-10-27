@@ -76,14 +76,9 @@ RowLayout
             {
                 const m = search_panel.search
                 if (m && m.paths.candidates.length > 0) 
-                {
                     text = m.paths.acceptFirstCandidate(text)
-                } 
-                else 
-                {
+                else
                     search_panel.folderChanged(text)
-                    if (m) m.doRequest(text)
-                }
             }
 
             Keys.onPressed: function(event) 
@@ -139,7 +134,6 @@ RowLayout
         onClicked: 
         {
             parentWin.confirmTagging()
-            search_panel.search.doRequest(input.text)
         }
     }
 

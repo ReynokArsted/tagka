@@ -85,7 +85,6 @@ ApplicationWindow
         if (trimmed !== "" && editingPath !== "") 
         {
             console.log("Rename: ", editingPath, " -> ", trimmed)
-            // fileModel.rename(editingPath, trimmed)
         }
         renameMode = false
         editingPath = ""
@@ -183,7 +182,6 @@ ApplicationWindow
                         id: tag_panel
 
                         search: search;
-                        //thingModel: ThingModel.listOfThingies
                         thingModel: ThingieListModel
                         dragOverlay: drag_overlay
 
@@ -216,17 +214,12 @@ ApplicationWindow
                         tagQuery: search.tags
                         onOpenFileRequested: (path) => system.openFile(path, win)
                         onOpenWithRequested: (path) => system.openWith(path, win)
-
-                        // onFolderOpened: (path) =>
-                        // {
-                        //     tag_panel.tagInput.text = path
-                        //     search.setQuery(path)            
-                        // }
+                        
                         onFolderOpened: (path) =>
-{
-    tag_panel.tagInput.text = path
-    search.doRequest(path)
-}
+                        {
+                            tag_panel.tagInput.text = path
+                            search.doRequest(path)
+                        }
 
                         onTagRequested: (paths, name) => tag_panel.startTagging(paths, name)
                         onRenameRequested: (path, name) => win.startRename(path, name)
@@ -252,6 +245,7 @@ ApplicationWindow
                     id: file_find_error_dialog; 
                     onClosed: win.file_find_error_mode = false 
                 }
+                ChooseCandidateDialog { id: choose_candidate_dialog }
             }
 
             Example.BottomBar
@@ -286,32 +280,31 @@ ApplicationWindow
     }
 
     readonly property int resizeMargin: 6
-    MouseArea { // top bond
+    MouseArea {
         height: win.resizeMargin
         anchors { left: parent.left; right: parent.right; top: parent.top }
         cursorShape: Qt.SizeVerCursor
         onPressed: win.startSystemResize(Qt.TopEdge)
     }
-    MouseArea { // bot bond
+    MouseArea {
         height: win.resizeMargin
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
         cursorShape: Qt.SizeVerCursor
         onPressed: win.startSystemResize(Qt.BottomEdge)
     }
-    MouseArea { // left bond
+    MouseArea {
         width: win.resizeMargin
         anchors { top: parent.top; bottom: parent.bottom; left: parent.left }
         cursorShape: Qt.SizeHorCursor
         onPressed: win.startSystemResize(Qt.LeftEdge)
     }
-    MouseArea { // rifht bond
+    MouseArea {
         width: win.resizeMargin
         anchors { top: parent.top; bottom: parent.bottom; right: parent.right }
         cursorShape: Qt.SizeHorCursor
         onPressed: win.startSystemResize(Qt.RightEdge)
     }
 
-    // corners
     MouseArea {
         width: win.resizeMargin * 2
         height: win.resizeMargin * 2

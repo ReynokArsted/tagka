@@ -5,7 +5,7 @@ project(untitled VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(QT_QML_GENERATE_QMLLS_INI ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Quick Qml LinguistTools Sql)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Quick Qml LinguistTools Sql Concurrent)
 
 qt_standard_project_setup(REQUIRES 6.8)
 
@@ -14,6 +14,11 @@ set(QML_IMPORT_PATH "C:/msys64/ucrt64/qml" CACHE STRING "QML import paths" FORCE
 qt_add_executable(appuntitled
     src/main.cpp
     src/utils/Translator.h
+    src/platform/DeviceNotifier.cpp
+    src/platform/FileHasher.cpp
+    src/platform/FileHasher.h
+    src/platform/MoveResolver.cpp
+    src/platform/MoveResolver.h
 )
 
 qt_add_translations(appuntitled TS_FILES i18n/en.ts)
@@ -39,6 +44,7 @@ qt_add_qml_module(appuntitled
         qml/dialogs/SettingsDialog.qml
         qml/dialogs/HelpDialog.qml
         qml/dialogs/ErrorDialog.qml
+        qml/dialogs/ChooseCandidateDialog.qml
     SOURCES
         src/storage/Storage.h src/storage/Storage.cpp
         src/platform/System.h src/platform/System.cpp
@@ -50,6 +56,8 @@ qt_add_qml_module(appuntitled
         src/processors/RequestProcessor.h src/processors/RequestProcessor.cpp
         src/processors/PathsProcessor.h src/processors/PathsProcessor.cpp
         src/processors/TagsProcessor.h src/processors/TagsProcessor.cpp
+        src/platform/VolumeRegistry.h src/platform/VolumeRegistry.cpp
+        src/platform/WatchList.h
 )
 
 target_include_directories(appuntitled PRIVATE
@@ -69,6 +77,7 @@ set_target_properties(appuntitled PROPERTIES
 
 target_link_libraries(appuntitled PRIVATE Qt6::Quick)
 target_link_libraries(appuntitled PRIVATE Qt6::Sql)
+target_link_libraries(appuntitled PRIVATE Qt6::Concurrent)
 
 include(GNUInstallDirs)
 install(TARGETS appuntitled

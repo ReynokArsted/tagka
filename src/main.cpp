@@ -40,7 +40,6 @@ int main(int argc, char *argv[])
     FileList fileList;
     System system;
 
-
     QObject::connect
     (
         &thingieModel,
@@ -50,29 +49,20 @@ int main(int argc, char *argv[])
     );
     QObject::connect
     (
-        &monitor,
-        &FileMonitor::fileDeleted,
-        &app,
-        [](const QString &path,
-           const QByteArray &fileId)
-        {
-            qDebug() << "-> id:" << fileId << "deleted by" << path;
-        }
+        &monitor, 
+        &FileMonitor::filePathChanged,
+        &fileList, 
+        &FileList::renamePath
     );
-    QObject::connect(&monitor, &FileMonitor::filePathChanged,
-                 &fileList, &FileList::renamePath);
-
-    QObject::connect(&monitor, &FileMonitor::fileDeleted,
-                 &fileList, [&fileList](const QString &path, const QByteArray &)
-                 { fileList.removePath(path); });
+    QObject::connect
+    (
+        &monitor, 
+        &FileMonitor::fileDeleted,
+        &fileList, 
+        [&fileList](const QString &path, const QByteArray &) {fileList.removePath(path);}
+    );
+    
     monitor.start();
-
-    //query.exec("create table file(id integer, path text, PRIMARY KEY(id AUTOINCREMENT))");
-    //query.exec("create table tag_file(id integer, tag_id integer, file_id integer, PRIMARY KEY(id AUTOINCREMENT))");
-    //query.exec("create table tag(id integer, tag_name varchar(20), PRIMARY KEY(id AUTOINCREMENT))");
-    //query.exec("insert into tag(tag_name) values('spring')");
-    //query.exec("insert into tag(tag_name) values('cat')");
-    //query.exec("insert into tag(tag_name) values('electronics')");
 
     QQmlApplicationEngine engine;
     Translator translator(&engine);
@@ -81,15 +71,18 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty("ThingieListModel", &thingieModel);
     engine.rootContext()->setContextProperty("FileMonitor", &monitor);
     engine.rootContext()->setContextProperty("System", &system);
+    engine.rootContext()->setContextProperty("MoveChoice", monitor.moveChoice());
 
     qmlRegisterType<FileList>("untitled.files", 1, 0, "FileList");
 
-    QObject::connect(
+    QObject::connect
+    (
         &engine,
         &QQmlApplicationEngine::objectCreationFailed,
         &app,
         []() { QCoreApplication::exit(-1); },
-        Qt::QueuedConnection);
+        Qt::QueuedConnection
+    );
     engine.loadFromModule("untitled", "Main");
 
     return app.exec();
