@@ -17,18 +17,6 @@ void ThingieListModel::reload()
     endResetModel();
 }
 
-// ThingieListModel::ThingieListModel(Storage *db, QObject *parent) :
-//     QAbstractListModel(parent), _db(db) {}
-
-// void ThingieListModel::updateFromVector(std::vector<Thingie*> newThingies)
-// {
-//     beginResetModel();
-//     _thingies.clear();
-//     for (const auto &item : newThingies)
-//         _thingies << item;
-//     endResetModel();
-// }
-
 QHash<int, QByteArray> ThingieListModel::roleNames() const
 {
     QHash<int, QByteArray> roles;
@@ -77,8 +65,11 @@ bool ThingieListModel::assignTagsToFile(const QList<QString> &paths, const QVari
         const int tagId = tagIdVar.toInt();
         if (tagId >= 0) desired.insert(tagId);
     }
-
-    const auto created = _db->assignTags(paths, desired, &System::fileId128ForPath, 1); // TODO: реальный volume_id
+    const auto created = _db->assignTags
+    (
+        paths, desired, &System::fileId128ForPath,
+        [this](const QString &p) { return _db->volumeIdByGuid(System::volumeGuidForPath(p)); }
+    );
     if (!created) return false;
 
     for (const QString &path : *created)

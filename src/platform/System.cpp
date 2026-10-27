@@ -3,10 +3,13 @@
 #include <algorithm>
 #include <cstring>
 
+#include <QCryptographicHash>
 #include <QDebug>
 #include <QDir>
 #include <QFileInfo>
 #include <QUrl>
+
+#include <winioctl.h>
 
 namespace
 {
@@ -52,18 +55,21 @@ namespace
         );
     }
 
-    std::optional<USN_JOURNAL_DATA> queryUsnJournal(HANDLE volumeHandle)
+    bool queryUsnJournal(HANDLE volumeHandle, USN_JOURNAL_DATA &journal)
     {
-        if (!System::isValidHandle(volumeHandle)) return std::nullopt;
+        if (!System::isValidHandle(volumeHandle)) return false;
 
-        USN_JOURNAL_DATA journal{};
         DWORD br = 0;
-        if (!DeviceIoControl(volumeHandle, FSCTL_QUERY_USN_JOURNAL, nullptr, 0,
-                             &journal, sizeof(journal), &br, nullptr))
-            return std::nullopt;
-
-        return journal;
+        return DeviceIoControl(volumeHandle, FSCTL_QUERY_USN_JOURNAL, nullptr, 0,
+                               &journal, sizeof(journal), &br, nullptr) != 0;
     }
+
+    struct MftEnumData
+    {
+        DWORDLONG StartFileReferenceNumber;
+        USN LowUsn;
+        USN HighUsn;
+    };
 
     System::UsnEvent toEvent(const USN_RECORD *rec)
     {
@@ -105,7 +111,7 @@ void System::openFile(const QString &filePath, QQuickWindow *window)
     const DWORD err = shellExecute(L"open", wpath);
     if (err == 0) return;
 
-    if (err == ERROR_NO_ASSOCIATION) // 1155
+    if (err == ERROR_NO_ASSOCIATION)
     {
         if (const DWORD err2 = shellExecute(L"openas", wpath, hwndOf(window)))
             qWarning() << "ERROR: ShellExecuteExW (openas fallback) failed with error code" << err2;
@@ -142,9 +148,93 @@ HANDLE System::openVolumeHandle(const QString &guidPath)
     return h;
 }
 
+static bool isMountedNtfs(const wchar_t *name)
+{
+    const UINT type = GetDriveTypeW(name);
+    bool ok = type == DRIVE_FIXED || type == DRIVE_REMOVABLE;
+
+    DWORD needed = 0;
+    if (ok)
+    {
+        GetVolumePathNamesForVolumeNameW(name, nullptr, 0, &needed);
+        ok = needed > 1;
+    }
+
+    wchar_t fs[MAX_PATH]{};
+    ok = ok && GetVolumeInformationW(name, nullptr, 0, nullptr, nullptr, nullptr, fs, MAX_PATH);
+    return ok && QString::fromWCharArray(fs).compare(QStringLiteral("NTFS"), Qt::CaseInsensitive) == 0;
+}
+
+QStringList System::mountedNtfsVolumes()
+{
+    QStringList result;
+
+    DWORD oldMode = 0;
+    SetThreadErrorMode(SEM_FAILCRITICALERRORS, &oldMode);
+
+    wchar_t name[MAX_PATH]{};
+    HANDLE find = FindFirstVolumeW(name, MAX_PATH);
+    if (find != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            if (isMountedNtfs(name))
+                result.append(QString::fromWCharArray(name));
+        }
+        while (FindNextVolumeW(find, name, MAX_PATH));
+        FindVolumeClose(find);
+    }
+
+    SetThreadErrorMode(oldMode, nullptr);
+    return result;
+}
+
+bool System::ensureUsnJournal(HANDLE volumeHandle)
+{
+    USN_JOURNAL_DATA journal{};
+    if (queryUsnJournal(volumeHandle, journal)) return true;
+
+    CREATE_USN_JOURNAL_DATA create{};
+    create.MaximumSize = 32ull * 1024 * 1024;
+    create.AllocationDelta = 4ull * 1024 * 1024;
+
+    DWORD br = 0;
+    if (!DeviceIoControl(volumeHandle, FSCTL_CREATE_USN_JOURNAL, &create, sizeof(create),
+                         nullptr, 0, &br, nullptr))
+    {
+        qWarning() << "ERROR: cannot create USN journal, error" << GetLastError();
+        return false;
+    }
+    return queryUsnJournal(volumeHandle, journal);
+}
+
 HANDLE System::openFileForWatch(const QString &path)
 {
     return openPath(path, FILE_READ_ATTRIBUTES, FILE_FLAG_BACKUP_SEMANTICS);
+}
+
+HANDLE System::openFileById(HANDLE volumeHandle, const QByteArray &fileId128, DWORD access)
+{
+    if (!isValidHandle(volumeHandle) || fileId128.size() != sizeof(FILE_ID_128))
+        return INVALID_HANDLE_VALUE;
+
+    FILE_ID_DESCRIPTOR desc{};
+    desc.dwSize = sizeof(desc);
+    desc.Type = ExtendedFileIdType;
+    std::memcpy
+    (
+        desc.ExtendedFileId.Identifier,
+        fileId128.constData(),
+        sizeof(desc.ExtendedFileId.Identifier)
+    );
+
+    return OpenFileById
+    (
+        volumeHandle, &desc, access,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_SEQUENTIAL_SCAN
+    );
 }
 
 QByteArray System::fileId128ForPath(const QString &path)
@@ -192,27 +282,7 @@ QString System::pathByHandle(HANDLE handle)
 
 QString System::pathByFileId(HANDLE volumeHandle, const QByteArray &fileId128)
 {
-    if (!isValidHandle(volumeHandle)) return {};
-    if (fileId128.size() != sizeof(FILE_ID_128)) return {};
-
-    FILE_ID_DESCRIPTOR desc{};
-    desc.dwSize = sizeof(desc);
-    desc.Type = ExtendedFileIdType;
-    std::memcpy
-    (
-        desc.ExtendedFileId.Identifier, 
-        fileId128.constData(),
-        sizeof(desc.ExtendedFileId.Identifier)
-    );
-
-    HANDLE h = OpenFileById
-    (
-        volumeHandle, &desc,
-        FILE_READ_ATTRIBUTES,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        nullptr,
-        FILE_FLAG_BACKUP_SEMANTICS
-    );
+    HANDLE h = openFileById(volumeHandle, fileId128, FILE_READ_ATTRIBUTES);
     if (h == INVALID_HANDLE_VALUE) return {};
 
     const QString path = pathByHandle(h);
@@ -220,55 +290,189 @@ QString System::pathByFileId(HANDLE volumeHandle, const QByteArray &fileId128)
     return path;
 }
 
-std::optional<USN> System::queryNextUsn(HANDLE volumeHandle)
+QString System::volumeGuidForPath(const QString &path)
 {
-    if (const auto journal = queryUsnJournal(volumeHandle))
-        return journal->NextUsn;
-    return std::nullopt;
+    const QString native = QDir::toNativeSeparators(QFileInfo(path).absoluteFilePath());
+
+    wchar_t mount[MAX_PATH]{};
+    wchar_t guid[64]{};
+    if (!GetVolumePathNameW(reinterpret_cast<LPCWSTR>(native.utf16()), mount, MAX_PATH)) return {};
+    if (!GetVolumeNameForVolumeMountPointW(mount, guid, 64)) return {};
+
+    return QString::fromWCharArray(guid);
 }
 
-std::optional<USN> System::scanUsnJournal
+qint64 System::fileSize(HANDLE handle)
+{
+    LARGE_INTEGER li{};
+    return GetFileSizeEx(handle, &li) ? li.QuadPart : -1;
+}
+
+bool System::isDeletePending(HANDLE handle)
+{
+    FILE_STANDARD_INFO info{};
+    return GetFileInformationByHandleEx(handle, FileStandardInfo, &info, sizeof(info))
+        && info.DeletePending;
+}
+
+QByteArray System::sha256OfHandle(HANDLE handle, qint64 &size, const std::atomic<bool> *cancel)
+{
+    size = fileSize(handle);
+    if (size < 0) return {};
+
+    LARGE_INTEGER zero{};
+    if (!SetFilePointerEx(handle, zero, nullptr, FILE_BEGIN)) return {};
+
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    QByteArray buffer(1 << 20, Qt::Uninitialized);
+    DWORD n = 0;
+    qint64 total = 0;
+
+    while (ReadFile(handle, buffer.data(), static_cast<DWORD>(buffer.size()), &n, nullptr) && n > 0)
+    {
+        if (cancel && cancel->load()) return {};
+        hash.addData(QByteArrayView(buffer.constData(), n));
+        total += n;
+    }
+
+    if (total != size) return {};
+    return hash.result();
+}
+
+QHash<QString, QList<QByteArray>> System::enumByNames
 (
-    HANDLE volumeHandle, USN startUsn, DWORD reasonMask,
-    const std::function<bool(const UsnEvent &)> &callback
+    HANDLE volumeHandle, 
+    const QSet<QString> &namesLower, 
+    const std::atomic<bool> *cancel
 )
 {
-    const auto journal = queryUsnJournal(volumeHandle);
-    if (!journal) return std::nullopt;
+    QHash<QString, QList<QByteArray>> result;
 
-    READ_USN_JOURNAL_DATA readData{};
-    readData.StartUsn = std::max(startUsn, journal->FirstUsn);
-    readData.ReasonMask = reasonMask;
-    readData.UsnJournalID = journal->UsnJournalID;   
+    USN_JOURNAL_DATA journal{};
+    if (!queryUsnJournal(volumeHandle, journal)) return result;
 
-    QByteArray buffer(1024 * 1024, Qt::Uninitialized);
+    MftEnumData med{};
+    med.StartFileReferenceNumber = 0;
+    med.LowUsn = 0;
+    med.HighUsn = journal.NextUsn;
 
-    while (readData.StartUsn < journal->NextUsn)
+    QByteArray buffer(1 << 20, Qt::Uninitialized);
+    DWORD br = 0;
+
+    while (!(cancel && cancel->load())
+           && DeviceIoControl
+                (   
+                    volumeHandle, 
+                    FSCTL_ENUM_USN_DATA, 
+                    &med, 
+                    sizeof(med),
+                    buffer.data(), 
+                    static_cast<DWORD>(buffer.size()), 
+                    &br, 
+                    nullptr
+                )
+           && br >= sizeof(DWORDLONG))
     {
-        DWORD bytesRead = 0;
-        if (!DeviceIoControl
-            (
-                volumeHandle, 
-                FSCTL_READ_USN_JOURNAL, 
-                &readData, 
-                sizeof(readData),
-                buffer.data(), 
-                static_cast<DWORD>(buffer.size()), 
-                &bytesRead, nullptr
-            )|| bytesRead < sizeof(USN))
-            break;
+        med.StartFileReferenceNumber = *reinterpret_cast<const DWORDLONG *>(buffer.constData());
 
-        readData.StartUsn = *reinterpret_cast<const USN *>(buffer.constData());
-
-        DWORD offset = sizeof(USN);
-        while (offset + sizeof(USN_RECORD) <= bytesRead)
+        DWORD offset = sizeof(DWORDLONG);
+        bool recordOk = true;
+        while (recordOk && offset + sizeof(USN_RECORD) <= br)
         {
             const auto *rec = reinterpret_cast<const USN_RECORD *>(buffer.constData() + offset);
-            if (rec->RecordLength == 0 || rec->RecordLength > bytesRead - offset) break;
+            recordOk = rec->RecordLength != 0 && rec->RecordLength <= br - offset;
 
-            if (!callback(toEvent(rec))) return readData.StartUsn;
-            offset += rec->RecordLength;
+            if (recordOk)
+            {
+                if (!(rec->FileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+                {
+                    const UsnEvent e = toEvent(rec);
+                    const QString key = e.name.toLower();
+                    if (namesLower.contains(key))
+                        result[key].append(e.fileId);
+                }
+                offset += rec->RecordLength;
+            }
         }
     }
-    return readData.StartUsn;
+    return result;
+}
+
+USN System::queryNextUsn(HANDLE volumeHandle)
+{
+    USN_JOURNAL_DATA journal{};
+    return queryUsnJournal(volumeHandle, journal) ? journal.NextUsn : InvalidUsn;
+}
+
+System::UsnReader::UsnReader(HANDLE volumeHandle, USN startUsn, DWORD reasonMask)
+    : volume_(volumeHandle), buffer_(1024 * 1024, Qt::Uninitialized)
+{
+    available_ = queryUsnJournal(volume_, journal_);
+    if (available_)
+    {
+        request_.StartUsn = std::max(startUsn, journal_.FirstUsn);
+        request_.ReasonMask = reasonMask;
+        request_.UsnJournalID = journal_.UsnJournalID;
+    }
+}
+
+USN System::UsnReader::position() const
+{
+    return available_ ? request_.StartUsn : InvalidUsn;
+}
+
+bool System::UsnReader::next(UsnEvent &event)
+{
+    bool found = false;
+    bool more = available_ && !finished_;
+
+    while (more && !found)
+    {
+        if (offset_ + sizeof(USN_RECORD) <= bytesRead_)
+        {
+            const auto *rec = reinterpret_cast<const USN_RECORD *>(buffer_.constData() + offset_);
+            if (rec->RecordLength == 0 || rec->RecordLength > bytesRead_ - offset_)
+            {
+                offset_ = bytesRead_;
+            }
+            else
+            {
+                event = toEvent(rec);
+                offset_ += rec->RecordLength;
+                found = true;
+            }
+        }
+        else
+        {
+            more = readBlock();
+        }
+    }
+    return found;
+}
+
+bool System::UsnReader::readBlock()
+{
+    bool ok = request_.StartUsn < journal_.NextUsn;
+    if (ok)
+    {
+        bytesRead_ = 0;
+        ok = DeviceIoControl
+            (
+                volume_, FSCTL_READ_USN_JOURNAL,
+                &request_, sizeof(request_),
+                buffer_.data(), static_cast<DWORD>(buffer_.size()),
+                &bytesRead_, nullptr
+            ) && bytesRead_ >= sizeof(USN);
+    }
+
+    if (ok)
+    {
+        request_.StartUsn = *reinterpret_cast<const USN *>(buffer_.constData());
+        offset_ = sizeof(USN);
+    }
+    else
+    {
+        finished_ = true;
+    }
+    return ok;
 }

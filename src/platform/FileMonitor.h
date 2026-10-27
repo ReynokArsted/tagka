@@ -1,108 +1,69 @@
-#include <windows.h>
-#include <winioctl.h>
+#pragma once
 
-#include <QThread>
-#include <QString>
-#include <QDir>
 #include <QByteArray>
 #include <QHash>
-#include <QSqlDatabase>
-#include <functional>
+#include <QList>
+#include <QMetaType>
+#include <QPair>
+#include <QRunnable>
+#include <QString>
+#include <QThread>
+#include <QThreadPool>
+#include <atomic>
 
+#include "FileHasher.h"
+#include "MoveResolver.h"
+#include "Storage.h"
 #include "System.h"
+#include "VolumeRegistry.h"
+#include "WatchList.h"
 
-class Storage;  
+using JournalPositions = QList<QPair<int, qint64>>;
+Q_DECLARE_METATYPE(JournalPositions)
 
-class FileMonitor: public QThread
+class FileMonitor : public QThread
 {
     Q_OBJECT
-signals:
-    void fileDeleted(const QString &path, const QByteArray &systemId);
-    void filePathChanged(const QString &oldPath, const QString &newPath);
-
-public slots:     
-    void onNewFileAdded(const QString &path);
 public:
     explicit FileMonitor(Storage *db, QObject *parent = nullptr);
     ~FileMonitor() override;
 
-    void reconcileStartup();
-    bool addFile(const QString &path, int volumeId);
+    void checkFilesState(int onlyVolumeId = 0);
+    bool addFile(const QString &path);
+    int  volumeIdForPath(const QString &path);
+
+    MoveResolver *moveChoice() { return &resolver_; }
+
+public slots:
+    void onNewFileAdded(const QString &path);
+
+signals:
+    void fileDeleted(const QString &path, const QByteArray &systemId);
+    void filePathChanged(const QString &oldPath, const QString &newPath);
+
 protected:
     void run() override;
+    void timerEvent(QTimerEvent *event) override;
+
+private slots:
+    void storePathChange(int volumeId, const QByteArray &systemId, const QString &shown, const QString &newPath);
+    void storeJournalPositions(const JournalPositions &positions);
+
 private:
-    enum class Fate { Unchanged, Moved, Deleted };
+    void processEvent(int volumeId, const System::UsnEvent &e);
+    void onRenamed(const WatchedFile &wf);
+    void onModified(const WatchedFile &wf, bool closed);
+    void pollVolume(VolumeInfo &vol);
 
-    struct WatchedFile
-    {
-        QByteArray systemId;
-        HANDLE handle = INVALID_HANDLE_VALUE;
-        QString path;
-        int volumeId = 0;
-    };
-    struct VolumeInfo
-    {
-        int id = 0;
-        QString guidPath;                    
-        HANDLE handle = INVALID_HANDLE_VALUE; 
-        USN lastUsn = 0;                
-    };
-    struct PendingRename
-    {
-        QString oldName;
-        QByteArray oldParentId;
-    };
+    void checkFileState(const Storage::FileRecord &row);
+    void restoreWatched(const Storage::FileRecord &row, const QString &actualPath);
+    void refreshVolumes();
 
-    void movefile
-    (
-        const QString &oldPath, 
-        const QString &newPath, 
-        const QByteArray &oldSystemId, 
-        const QByteArray &newSystemId
-    );
-
-    Storage *db_ = nullptr;
-    QHash<QByteArray, WatchedFile> watched_; 
-    QHash<int, VolumeInfo> volumes_;       
-    QHash<QByteArray, PendingRename> pendingRenames_;  
-
-    bool reopenById
-    (
-        const VolumeInfo &vol, 
-        const QByteArray &systemId, 
-        QString &currentPath
-    ) const;
-
-    Fate traceFateFromJournal
-    (
-        const QByteArray &systemId,
-        const QString &fileName,
-        int originVolumeId,
-        QByteArray &newSystemId,
-        QString &newPath,
-        int &newVolumeId
-    );
-
-    void processEvent(const System::UsnEvent &e);
-    bool addWatch(const QByteArray &systemId, const QString &path, int volumeId);
-
-    void loadVolumes();
-    void updateFilePath(const QByteArray &systemId, const QString &newPath);
-    void updateFileIdentity
-    (
-        const QByteArray &oldSystemId, 
-        const QByteArray &newSystemId,
-        const QString &newPath, 
-        int newVolumeId
-    );
-    void deleteFileRecord(const QByteArray &systemId);
-    void saveJournalState();
-
-    VolumeInfo *volumeById(int id);
-    static HANDLE openVolumeHandle(const QString &guidPath);
-    static QString getPathByHandle(HANDLE handle);
-    static QByteArray fileId128ToBytes(const FILE_ID_128 &id);
-    static FILE_ID_128 bytesToFileId128(const QByteArray &bytes);
-    static QByteArray fileId128ToBytes(DWORDLONG fileReference);
-    static QByteArray currentSystemIdForPath(const QString &path);
+    Storage *db_;
+    VolumeRegistry volumes_;
+    WatchList watched_;
+    QThreadPool pool_;
+    std::atomic<bool> stopping_{false};
+    FileHasher hasher_;
+    MoveResolver resolver_;
 };

@@ -61,22 +61,27 @@ ColumnLayout
         }
     }
 
-    function confirmTagging() 
+    function resetTagging()
     {
-        if (tagTargetPaths.length != 0) 
+        tagSelectMode = false
+        tagTargetPaths = []
+        selectedTagIds = []
+    }
+
+    function confirmTagging()
+    {
+        if (tagTargetPaths.length !== 0)
         {
             const ok = thingModel.assignTagsToFile(tagTargetPaths, selectedTagIds)
             if (!ok) console.warn("ERROR: file tags are not saved for: ", tagTargetPaths)
             else tag_panel.taggingConfirmed()
         }
-        cancelTagging()
+        resetTagging()
     }
 
-    function cancelTagging() 
+    function cancelTagging()
     {
-        tagSelectMode = false
-        tagTargetPaths = []
-        selectedTagIds = []
+        resetTagging()
         tag_panel.taggingCancelled()
     }
 
@@ -99,7 +104,6 @@ ColumnLayout
     function handleTagFilesRequested(id, name)
     {
         tagInput.text = name
-        //fileModel.setFolder(name)
         search.doRequest(name)
     }
 

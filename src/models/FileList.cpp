@@ -72,6 +72,8 @@ QHash<int, QByteArray> FileList::roleNames() const
 
 void FileList::setEntries(QVector<FileEntry> entries)
 {
+    if (entries == m_entries) return; 
+
     const int oldCount = m_entries.size();
 
     beginResetModel();

@@ -35,4 +35,6 @@ struct FileEntry
                 out.push_back(fromInfo(fi));
         return out;
     }
+
+    bool operator==(const FileEntry &) const = default;
 };
