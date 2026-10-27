@@ -52,17 +52,24 @@ struct Lookup
     QVector<FileEntry> found;
 };
 
-Lookup lookup(const QString &input)
+Lookup lookup(const QString &input, bool showHidden)
 {
     Lookup l{ splitInput(input), {} };
     if (!l.parts.dir.isEmpty())
-        l.found = FileEntry::listDir(l.parts.dir, QDir::Name, l.parts.prefix);
+        l.found = FileEntry::listDir(l.parts.dir, QDir::Name, l.parts.prefix, showHidden);
     return l;
 }
 
 }
 
 PathsProcessor::PathsProcessor(QObject *parent): QObject(parent) {}
+
+void PathsProcessor::setShowHidden(bool show)
+{
+    if (show == m_showHidden) return;
+    m_showHidden = show;
+    emit showHiddenChanged();
+}
 
 std::optional<QVector<FileEntry>> PathsProcessor::getFilesByPath(const QString &path)
 {
@@ -72,7 +79,7 @@ std::optional<QVector<FileEntry>> PathsProcessor::getFilesByPath(const QString &
 
     m_folder = dir.absolutePath();
     emit folderChanged();
-    return FileEntry::listDir(m_folder, QDir::DirsFirst | QDir::Name);
+    return FileEntry::listDir(m_folder, QDir::DirsFirst | QDir::Name, QString(), m_showHidden);
 }
 
 QString PathsProcessor::parent_folder() const
@@ -85,8 +92,12 @@ QString PathsProcessor::parent_folder() const
 
 QString PathsProcessor::parentOf(const QString &path) const
 {
-    QDir dir(QDir::fromNativeSeparators(path.trimmed()));
-    return dir.cdUp() ? dir.path() : QString(); 
+    const QString p = QDir::fromNativeSeparators(path.trimmed());
+    if (p.isEmpty() || p.contains(QLatin1Char('#')) || !QDir::isAbsolutePath(p))
+        return {};
+
+    QDir dir(p);
+    return dir.cdUp() ? dir.path() : QString();
 }
 
 QVariantList PathsProcessor::candidates() const
@@ -113,12 +124,12 @@ void PathsProcessor::setCandidates(QVector<FileEntry> c)
 
 void PathsProcessor::updateCandidates(const QString &input)
 {
-    setCandidates(lookup(input).found);
+    setCandidates(lookup(input, m_showHidden).found);
 }
 
 QString PathsProcessor::completePrefix(const QString &input) const
 {
-    const auto [parts, found] = lookup(input);
+    const auto [parts, found] = lookup(input, m_showHidden);
     if (found.isEmpty())
         return input;
 
@@ -139,7 +150,7 @@ QString PathsProcessor::completePrefix(const QString &input) const
 
 QString PathsProcessor::acceptFirstCandidate(const QString &input) const
 {
-    const auto [parts, found] = lookup(input);
+    const auto [parts, found] = lookup(input, m_showHidden);
     if (found.isEmpty())
         return input;
 

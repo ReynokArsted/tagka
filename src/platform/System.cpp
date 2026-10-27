@@ -6,7 +6,9 @@
 #include <QCryptographicHash>
 #include <QDebug>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QUrl>
 
 #include <winioctl.h>
@@ -117,6 +119,51 @@ void System::openFile(const QString &filePath, QQuickWindow *window)
             qWarning() << "ERROR: ShellExecuteExW (openas fallback) failed with error code" << err2;
     }
     else qWarning() << "ERROR: ShellExecuteExW (open) failed with error code" << err;
+}
+
+QString System::renameFile(const QString &filePath, const QString &newName)
+{
+    static const QRegularExpression forbidden(QStringLiteral(R"([\\/:*?"<>|])"));
+
+    const QString name = newName.trimmed();
+    if (name.isEmpty() || name == "." || name == ".." || name.contains(forbidden))
+    {
+        qWarning() << "ERROR: invalid file name" << newName;
+        return {};
+    }
+
+    const QFileInfo fi(filePath);
+    if (!fi.exists())
+    {
+        qWarning() << "ERROR: cannot rename, file not found" << filePath;
+        return {};
+    }
+
+    const QString oldPath = fi.absoluteFilePath();
+    const QString newPath = QDir(fi.absolutePath()).filePath(name);
+    if (newPath == oldPath) return newPath;
+
+    const QString nativeOld = QDir::toNativeSeparators(oldPath);
+    const QString nativeNew = QDir::toNativeSeparators(newPath);
+    if (!MoveFileExW(reinterpret_cast<LPCWSTR>(nativeOld.utf16()),
+                     reinterpret_cast<LPCWSTR>(nativeNew.utf16()), 0))
+    {
+        qWarning() << "ERROR: MoveFileExW failed with error code" << GetLastError()
+                   << oldPath << "->" << newPath;
+        return {};
+    }
+    return newPath;
+}
+
+QStringList System::moveToTrash(const QStringList &paths)
+{
+    QStringList removed;
+    for (const QString &path : paths)
+    {
+        if (QFile::moveToTrash(path)) removed << path;
+        else qWarning() << "ERROR: cannot move to trash" << path;
+    }
+    return removed;
 }
 
 bool System::isValidHandle(HANDLE handle)

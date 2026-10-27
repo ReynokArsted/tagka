@@ -18,10 +18,20 @@ class Storage : public QObject
 public:
     enum State { Tracked = 0, AwaitingChoice = 1, AwaitingVolume = 2 };
 
+    enum UserSetBit
+    {
+        DarkMode        = 0,
+        English         = 1,
+        DeleteWarnings  = 2,
+        ShowHiddenFiles = 3,
+    };
+    static constexpr qint64 DefaultUserSet = qint64(1) << DeleteWarnings;
+
     struct Tag
     {
         int id;
         QString name;
+        QString color;
     };
     struct Volume
     {
@@ -44,8 +54,14 @@ public:
     bool open();
 
     QList<Tag> tags() const;
-    int  addTag(const QString &name);
+    int  addTag(const QString &name, const QString &color = QString());
+    bool setTagColor(int tagId, const QString &color);
     bool removeTag(int tagId);
+
+    qint64 userSet() const;
+    bool saveUserSet(qint64 flags);
+    Q_INVOKABLE QVariantMap userSettings() const;
+    Q_INVOKABLE bool setUserSettings(const QVariantMap &settings);
 
     std::optional<QSet<QString>> filesForTag(const QString &tagName) const;
     QSet<int> commonTagIds(const QList<QString> &paths) const;
@@ -57,6 +73,7 @@ public:
         const std::function<QByteArray(const QString &)> &systemId,
         const std::function<int(const QString &)> &volumeOf
     );
+    bool removeFileTags(const QList<QString> &paths);
 
     QList<FileRecord> files() const;
 

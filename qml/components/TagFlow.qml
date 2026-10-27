@@ -1,9 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 
+import untitled 1.0
 import "./" as Example
 
-Item 
+Item
 {
     id: tag_flow
 
@@ -18,6 +19,17 @@ Item
 
     width: 600
     height: 48
+
+    TagColorDialog
+    {
+        id: tag_color_dialog
+
+        onColorChosen: (tagId, color) =>
+        {
+            if (!ThingieListModel.setThingColor(tagId, color))
+                console.warn("ERROR: cannot change color of tag", tagId)
+        }
+    }
 
     Flickable 
     {
@@ -115,11 +127,11 @@ Item
 
                         onRightClicked: tagMenu.popup()
 
-                        Menu 
+                        ThemedMenu
                         {
                             id: tagMenu
 
-                            MenuItem 
+                            ThemedMenuItem
                             {
                                 text: qsTr("Показать файлы по метке")
 
@@ -131,7 +143,14 @@ Item
                                 }
                             }
 
-                            MenuItem 
+                            ThemedMenuItem
+                            {
+                                text: qsTr("Изменить цвет")
+
+                                onTriggered: tag_color_dialog.openFor(delegateRoot.id, delegateRoot.name, delegateRoot.color)
+                            }
+
+                            ThemedMenuItem
                             {
                                 text: qsTr("Удалить метку")
 
@@ -149,7 +168,7 @@ Item
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
 
-                            color: "white"
+                            color: tag_color_dialog.textColorOn(delegateRoot.color)
                             text: delegateRoot.name
                             font.pixelSize: 18
                         }

@@ -19,6 +19,8 @@ public:
     const QString &name() const;
     const QColor &color() const;
 
+    static QColor randomColor();
+
 public slots:
     void setName(const QString &newName);
     void setColor(const QColor &newColor);
@@ -32,8 +34,7 @@ private:
     QString _name;
     QColor _color = randomColor();
 
-    QColor randomColor();
-    QString randomHexString(unsigned int length);
+    static QString randomHexString(unsigned int length);
 };
 
 #endif

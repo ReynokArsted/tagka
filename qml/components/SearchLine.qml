@@ -105,6 +105,9 @@ RowLayout
         Layout.preferredWidth: 40
         Layout.preferredHeight: 40
 
+        enabled: search_panel.search.paths.parentOf(input.text) !== ""
+        opacity: enabled ? 1.0 : 0.5
+
         onClicked: 
         {
             const p = search_panel.search.paths.parentOf(input.text)
