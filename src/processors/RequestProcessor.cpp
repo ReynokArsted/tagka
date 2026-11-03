@@ -26,7 +26,7 @@ void RequestProcessor::doRequest(const QString &input)
 
     const bool isTagExpression = input.contains(QLatin1Char('#'));
 
-    const std::optional<QVector<FileEntry>> entries = isTagExpression
+    const std::optional<QVector<File>> entries = isTagExpression
         ? m_tags->getFilesByExpression(input)
         : m_paths->getFilesByPath(input);
 

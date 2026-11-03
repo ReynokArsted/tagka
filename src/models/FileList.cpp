@@ -50,7 +50,7 @@ QVariant FileList::data(const QModelIndex &index, int role) const
     if (!index.isValid() || index.row() < 0 || index.row() >= m_entries.size())
         return {};
 
-    const FileEntry &e = m_entries.at(index.row());
+    const File &e = m_entries.at(index.row());
     switch (role)
     {
         case PathRole: return e.path;
@@ -70,7 +70,7 @@ QHash<int, QByteArray> FileList::roleNames() const
     };
 }
 
-void FileList::setEntries(QVector<FileEntry> entries)
+void FileList::setEntries(QVector<File> entries)
 {
     if (entries == m_entries) return; 
 

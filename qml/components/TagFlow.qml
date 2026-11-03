@@ -26,7 +26,7 @@ Item
 
         onColorChosen: (tagId, color) =>
         {
-            if (!ThingieListModel.setThingColor(tagId, color))
+            if (!TagList.setThingColor(tagId, color))
                 console.warn("ERROR: cannot change color of tag", tagId)
         }
     }
@@ -65,7 +65,7 @@ Item
             {
                 id: repeater
 
-                model: ThingieListModel
+                model: TagList
 
                 delegate: DropArea 
                 {
@@ -100,7 +100,7 @@ Item
                         const from = sourceTile.visualIndex 
                         const to = delegateRoot.index
 
-                        if (from !== to) 	ThingieListModel.move(from, to)
+                        if (from !== to) 	TagList.move(from, to)
                     }
 
                     onDropped: function (drag) {}
@@ -122,7 +122,7 @@ Item
                         {
                             tag_flow.tagSelected(delegateRoot.id, delegateRoot.name)
                             if (delegateRoot.index !== 0)
-                                	ThingieListModel.move(delegateRoot.index, 0)
+                                	TagList.move(delegateRoot.index, 0)
                         }
 
                         onRightClicked: tagMenu.popup()
@@ -139,7 +139,7 @@ Item
                                 {
                                     tag_flow.tagFilesRequested(delegateRoot.id, delegateRoot.name)
                                     if (delegateRoot.index !== 0)
-                                        	ThingieListModel.move(delegateRoot.index, 0)
+                                        	TagList.move(delegateRoot.index, 0)
                                 }
                             }
 

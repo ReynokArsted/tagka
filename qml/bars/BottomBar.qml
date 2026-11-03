@@ -44,19 +44,59 @@ Rectangle
 
                 text: "?"
                 onClicked: bottom_bar.helpClicked()
-
+                
                 ToolTip 
                 {
                     id: help_tooltip
 
+                    readonly property int tailWidth: 16
+                    readonly property int tailHeight: 8
+                    readonly property int radius: 10
+                    readonly property int maxTextWidth: 280
+                    readonly property int contentPaddingH: 14
+                    readonly property int contentPaddingV: 10
+
                     popupType: Popup.Window
                     visible: help_button.hovered
-                    delay: 1000
-                    timeout: 5000
-                    text: qsTr("tip test")
+                    delay: 400
+                    timeout: 6000
+                    padding: 0
+                    text: qsTr("TIP TEST")
 
                     x: (help_button.width - width) / 2
-                    y: -height - 8
+                    y: -height - 6
+
+                    implicitWidth: Math.min(maxTextWidth, tooltip_text.implicitWidth) + 2 * contentPaddingH
+                    implicitHeight: tooltip_text.implicitHeight + 2 * contentPaddingV + tailHeight
+
+                    enter: Transition 
+                    {
+                        NumberAnimation 
+                        { 
+                            property: "opacity"; 
+                            from: 0; to: 1; 
+                            duration: 180; 
+                            easing.type: Easing.OutCubic 
+                        }
+                        NumberAnimation 
+                        {
+                            property: "scale"; 
+                            from: 0.92; to: 1; 
+                            duration: 180; 
+                            easing.type: Easing.OutCubic 
+                        }
+                    }
+                    exit: Transition 
+                    {
+                        NumberAnimation 
+                        { 
+                            property: "opacity"; 
+                            from: 1; to: 0; 
+                            duration: 120 
+                        }
+                    }
+
+                    transformOrigin: Popup.Bottom
 
                     contentItem: Text 
                     {
@@ -64,22 +104,18 @@ Rectangle
 
                         text: help_tooltip.text
                         color: Theme.textColor
+                        font.pixelSize: 12
                         wrapMode: Text.WordWrap
-                        
-                        width: help_tooltip.width
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
-                        leftPadding: 12
-                        rightPadding: 12
-                        topPadding: 8
-                        bottomPadding: 18
-                    }
 
+                        x: help_tooltip.contentPaddingH
+                        y: (help_tooltip.height - help_tooltip.tailHeight - height) / 2
+                        width: Math.min(help_tooltip.maxTextWidth, implicitWidth)
+                    }
+                    
                     background: Item 
                     {
-                        implicitWidth: tooltip_text.implicitWidth
-                        implicitHeight: tooltip_text.implicitHeight
-
                         Canvas 
                         {
                             id: canvas
@@ -99,35 +135,44 @@ Rectangle
 
                                 var w = width
                                 var h = height
-                                var r = 14
-                                var tailWidth = 20
-                                var tailHeight = 10
-                                var bodyBottom = h - tailHeight
+                                var r = help_tooltip.radius
+                                var tw = help_tooltip.tailWidth
+                                var th = help_tooltip.tailHeight
+                                var bodyBottom = h - th
+                                var inset = 1
+
+                                ctx.shadowColor = "rgba(0, 0, 0, 0.35)"
+                                ctx.shadowBlur = 10
+                                ctx.shadowOffsetY = 3
 
                                 ctx.beginPath()
-                                ctx.moveTo(r, 0)
-                                ctx.lineTo(w - r, 0)
-                                ctx.quadraticCurveTo(w, 0, w, r)
-                                ctx.lineTo(w, bodyBottom - r)
-                                ctx.quadraticCurveTo(w, bodyBottom, w - r, bodyBottom)
+                                ctx.moveTo(inset + r, inset)
+                                ctx.lineTo(w - inset - r, inset)
+                                ctx.quadraticCurveTo(w - inset, inset, w - inset, inset + r)
+                                ctx.lineTo(w - inset, bodyBottom - r)
+                                ctx.quadraticCurveTo(w - inset, bodyBottom, w - inset - r, bodyBottom)
 
-                                ctx.lineTo((w + tailWidth) / 2, bodyBottom)
-                                ctx.lineTo(w / 2, h)
-                                ctx.lineTo((w - tailWidth) / 2, bodyBottom)
+                                ctx.lineTo(w / 2 + tw / 2, bodyBottom)
+                                ctx.quadraticCurveTo(w / 2 + tw / 4, bodyBottom, w / 2 + 2, bodyBottom + th - 2)
+                                ctx.quadraticCurveTo(w / 2, bodyBottom + th, w / 2 - 2, bodyBottom + th - 2)
+                                ctx.quadraticCurveTo(w / 2 - tw / 4, bodyBottom, w / 2 - tw / 2, bodyBottom)
 
-                                ctx.lineTo(r, bodyBottom)
-                                ctx.quadraticCurveTo(0, bodyBottom, 0, bodyBottom - r)
-                                ctx.lineTo(0, r)
-                                ctx.quadraticCurveTo(0, 0, r, 0)
+                                ctx.lineTo(inset + r, bodyBottom)
+                                ctx.quadraticCurveTo(inset, bodyBottom, inset, bodyBottom - r)
+                                ctx.lineTo(inset, inset + r)
+                                ctx.quadraticCurveTo(inset, inset, inset + r, inset)
                                 ctx.closePath()
 
                                 ctx.fillStyle = Theme.fieldBackground
                                 ctx.fill()
 
+                                ctx.shadowColor = "transparent"
                                 ctx.strokeStyle = Theme.textColor
-                                ctx.lineWidth = 2
+                                ctx.globalAlpha = 0.25
+                                ctx.lineWidth = 1.5
                                 ctx.lineJoin = "round"
                                 ctx.stroke()
+                                ctx.globalAlpha = 1.0
                             }
                         }
                     }

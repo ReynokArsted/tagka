@@ -1,10 +1,10 @@
-#ifndef THINGIE_H
-#define THINGIE_H
+#ifndef Tag_H
+#define Tag_H
 
 #include <QObject>
 #include <QColor>
 
-class Thingie : public QObject
+class Tag : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(int id READ id CONSTANT)
@@ -12,8 +12,8 @@ class Thingie : public QObject
     Q_PROPERTY(QColor color READ color WRITE setColor NOTIFY colorChanged)
 
 public:
-    explicit Thingie(int id, const QString& name, QObject* parent = nullptr);
-    explicit Thingie(const QString& name, QObject* parent = nullptr);
+    explicit Tag(int id, const QString& name, QObject* parent = nullptr);
+    explicit Tag(const QString& name, QObject* parent = nullptr);
 
     int id() const;
     const QString &name() const;

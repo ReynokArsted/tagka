@@ -442,6 +442,7 @@ QHash<QString, QList<QByteArray>> System::enumByNames
             }
         }
     }
+    qDebug() << "enum result:"  << result;
     return result;
 }
 
