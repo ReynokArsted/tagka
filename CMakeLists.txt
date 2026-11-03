@@ -11,6 +11,13 @@ qt_standard_project_setup(REQUIRES 6.8)
 
 set(QML_IMPORT_PATH "C:/msys64/ucrt64/qml" CACHE STRING "QML import paths" FORCE)
 
+# Qt-утилиты (qmlimportscanner и др.) лежат в share/qt6/bin без своих DLL;
+# без ucrt64/bin в начале PATH они подхватывают чужой Qt и падают с 0xc0000139,
+# а оборванная конфигурация оставляет после себя неполные файлы сборки
+if(WIN32)
+    set(ENV{PATH} "C:/msys64/ucrt64/bin;C:/msys64/ucrt64/share/qt6/bin;$ENV{PATH}")
+endif()
+
 qt_add_executable(appuntitled
     src/main.cpp
     src/utils/Translator.h
@@ -52,10 +59,10 @@ qt_add_qml_module(appuntitled
     SOURCES
         src/storage/Storage.h src/storage/Storage.cpp
         src/platform/System.h src/platform/System.cpp
-        src/models/Thingie.h src/models/Thingie.cpp
-        src/models/ThingieListModel.h src/models/ThingieListModel.cpp
+        src/models/Tag.h src/models/Tag.cpp
+        src/models/TagList.h src/models/TagList.cpp
         src/models/FileList.h src/models/FileList.cpp
-        src/models/FileEntry.h
+        src/models/File.h
         src/platform/FileMonitor.h src/platform/FileMonitor.cpp
         src/processors/RequestProcessor.h src/processors/RequestProcessor.cpp
         src/processors/PathsProcessor.h src/processors/PathsProcessor.cpp

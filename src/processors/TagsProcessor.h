@@ -9,7 +9,7 @@
 #include <optional>
 #include <QtQml/qqmlregistration.h>
 
-#include "FileEntry.h"
+#include "File.h"
 
 class Storage;  
 
@@ -20,7 +20,7 @@ class TagsProcessor : public QObject
 public:
     explicit TagsProcessor(Storage *db, QObject *parent = nullptr);
 
-    std::optional<QVector<FileEntry>> getFilesByExpression(const QString &expression);
+    std::optional<QVector<File>> getFilesByExpression(const QString &expression);
     Q_INVOKABLE QSet<int> tagIdsForFile(const QList<QString> &paths) const;
 
 signals:

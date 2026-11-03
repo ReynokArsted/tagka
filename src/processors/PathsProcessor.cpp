@@ -49,14 +49,14 @@ QString commonPrefixOf(const QStringList &names, const QString &prefix)
 struct Lookup
 {
     InputParts parts;
-    QVector<FileEntry> found;
+    QVector<File> found;
 };
 
 Lookup lookup(const QString &input, bool showHidden)
 {
     Lookup l{ splitInput(input), {} };
     if (!l.parts.dir.isEmpty())
-        l.found = FileEntry::listDir(l.parts.dir, QDir::Name, l.parts.prefix, showHidden);
+        l.found = File::listDir(l.parts.dir, QDir::Name, l.parts.prefix, showHidden);
     return l;
 }
 
@@ -71,7 +71,7 @@ void PathsProcessor::setShowHidden(bool show)
     emit showHiddenChanged();
 }
 
-std::optional<QVector<FileEntry>> PathsProcessor::getFilesByPath(const QString &path)
+std::optional<QVector<File>> PathsProcessor::getFilesByPath(const QString &path)
 {
     const QDir dir(path);
     if (!dir.exists())
@@ -79,7 +79,7 @@ std::optional<QVector<FileEntry>> PathsProcessor::getFilesByPath(const QString &
 
     m_folder = dir.absolutePath();
     emit folderChanged();
-    return FileEntry::listDir(m_folder, QDir::DirsFirst | QDir::Name, QString(), m_showHidden);
+    return File::listDir(m_folder, QDir::DirsFirst | QDir::Name, QString(), m_showHidden);
 }
 
 QString PathsProcessor::parent_folder() const
@@ -104,7 +104,7 @@ QVariantList PathsProcessor::candidates() const
 {
     QVariantList out;
     out.reserve(m_candidates.size());
-    for (const FileEntry &e : m_candidates)
+    for (const File &e : m_candidates)
         out.append(QVariantMap
         {
             { QStringLiteral("name"),  e.name  },
@@ -114,7 +114,7 @@ QVariantList PathsProcessor::candidates() const
     return out;
 }
 
-void PathsProcessor::setCandidates(QVector<FileEntry> c)
+void PathsProcessor::setCandidates(QVector<File> c)
 {
     if (m_candidates.isEmpty() && c.isEmpty())
         return;
@@ -135,7 +135,7 @@ QString PathsProcessor::completePrefix(const QString &input) const
 
     QStringList names;
     names.reserve(found.size());
-    for (const FileEntry &e : found)
+    for (const File &e : found)
         names << e.name;
 
     const QString common = commonPrefixOf(names, parts.prefix);

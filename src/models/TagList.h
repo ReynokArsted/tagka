@@ -1,5 +1,5 @@
-#ifndef THINGIELISTMODEL_H
-#define THINGIELISTMODEL_H
+#ifndef TagList_H
+#define TagList_H
 
 #include <QAbstractListModel>
 #include <QColor>
@@ -7,15 +7,15 @@
 #include <QStringList>
 #include <QVariantList>
 
-#include "Thingie.h"
+#include "Tag.h"
 
 class Storage;
 
-class ThingieListModel : public QAbstractListModel
+class TagList : public QAbstractListModel
 {
     Q_OBJECT
 public:
-    enum ThingieRoles
+    enum TagRoles
     {
         NameRole = Qt::UserRole + 1,
         ColorRole,
@@ -23,7 +23,7 @@ public:
         IdRole,
     };
 
-    explicit ThingieListModel(Storage *db, QObject *parent = nullptr);
+    explicit TagList(Storage *db, QObject *parent = nullptr);
 
     QHash<int, QByteArray> roleNames() const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
@@ -44,7 +44,7 @@ signals:
     void tagColorChanged(int tagId);
 
 private:
-    QList<Thingie*> _thingies;
+    QList<Tag*> _Tags;
     Storage *_db = nullptr;
 };
 

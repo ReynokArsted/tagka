@@ -14,7 +14,7 @@
 #include "FileList.h"
 #include "Storage.h"
 #include "FileMonitor.h"
-#include "ThingieListModel.h"
+#include "TagList.h"
 #include "System.h"
 
 void logHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
@@ -35,15 +35,15 @@ int main(int argc, char *argv[])
     Storage db;
     if (!db.open()) return -1;
 
-    ThingieListModel thingieModel(&db);
+    TagList TagModel(&db);
     FileMonitor monitor(&db);
     FileList fileList;
     System system;
 
     QObject::connect
     (
-        &thingieModel,
-        &ThingieListModel::newFileAdded,
+        &TagModel,
+        &TagList::newFileAdded,
         &monitor,
         &FileMonitor::onNewFileAdded
     );
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     Translator translator(&engine);
     engine.rootContext()->setContextProperty("Translator", &translator);
     engine.rootContext()->setContextProperty("Storage", &db);
-    engine.rootContext()->setContextProperty("ThingieListModel", &thingieModel);
+    engine.rootContext()->setContextProperty("TagList", &TagModel);
     engine.rootContext()->setContextProperty("FileMonitor", &monitor);
     engine.rootContext()->setContextProperty("System", &system);
     engine.rootContext()->setContextProperty("MoveChoice", monitor.moveChoice());

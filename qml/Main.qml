@@ -134,7 +134,7 @@ ApplicationWindow
 
         confirmDelete(text, function()
         {
-            if (!ThingieListModel.removeAllTags(paths))
+            if (!TagList.removeAllTags(paths))
                 showError(qsTr("Не удалось удалить метки"))
             file_panel.clearSelection()
         })
@@ -153,7 +153,7 @@ ApplicationWindow
         {
             const removed = system.moveToTrash(paths)
 
-            if (removed.length > 0 && !ThingieListModel.removeAllTags(removed))
+            if (removed.length > 0 && !TagList.removeAllTags(removed))
                 showError(qsTr("Файлы удалены, но их метки удалить не удалось"))
 
             for (let i = 0; i < removed.length; i++)
@@ -275,7 +275,7 @@ ApplicationWindow
                         id: tag_panel
 
                         search: search;
-                        thingModel: ThingieListModel
+                        thingModel: TagList
                         dragOverlay: drag_overlay
 
                         addTagHighlight: win.addTagHighlight
@@ -297,7 +297,7 @@ ApplicationWindow
                         Layout.rightMargin: 6
                         Layout.leftMargin: 6
 
-                        tagModel: ThingieListModel
+                        tagModel: TagList
 
                         renameMode: win.renameMode
                         editingPath: win.editingPath

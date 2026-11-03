@@ -124,7 +124,7 @@ RowLayout
         Layout.preferredWidth: 40
         Layout.preferredHeight: 40
 
-        onClicked: ThingieListModel.addThing(input.text)
+        onClicked: TagList.addThing(input.text)
     }
 
     ThemedButton 

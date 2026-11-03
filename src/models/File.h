@@ -5,18 +5,18 @@
 #include <QString>
 #include <QVector>
 
-struct FileEntry
+struct File
 {
     QString path;
     QString name;
     bool isDir = false;
 
-    static FileEntry fromInfo(const QFileInfo &fi)
+    static File fromInfo(const QFileInfo &fi)
     {
         return { fi.absoluteFilePath(), fi.fileName(), fi.isDir() };
     }
 
-    static QVector<FileEntry> listDir
+    static QVector<File> listDir
     (
         const QString &dirPath,
         QDir::SortFlags sort,
@@ -24,7 +24,7 @@ struct FileEntry
         bool showHidden = false
     )
     {
-        QVector<FileEntry> out;
+        QVector<File> out;
         const QDir dir(dirPath);
         if (!dir.exists())
             return out;
@@ -41,5 +41,5 @@ struct FileEntry
         return out;
     }
 
-    bool operator==(const FileEntry &) const = default;
+    bool operator==(const File &) const = default;
 };

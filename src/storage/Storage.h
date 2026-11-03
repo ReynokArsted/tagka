@@ -31,7 +31,7 @@ public:
     {
         int id;
         QString name;
-        QString color;
+        QString color;      
     };
     struct Volume
     {

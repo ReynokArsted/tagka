@@ -318,9 +318,9 @@ QVector<QSet<QString>> evaluate
 TagsProcessor::TagsProcessor(Storage *db, QObject *parent)
     : QObject(parent), m_db(db) {}
 
-std::optional<QVector<FileEntry>> TagsProcessor::getFilesByExpression(const QString &expression)
+std::optional<QVector<File>> TagsProcessor::getFilesByExpression(const QString &expression)
 {
-    const QVector<FileEntry> empty;
+    const QVector<File> empty;
     auto fail = [&](const QString &message, bool critical = false)
     {
         emit errorOccurred(message, critical);
@@ -383,10 +383,10 @@ std::optional<QVector<FileEntry>> TagsProcessor::getFilesByExpression(const QStr
     QStringList paths = found.values();
     paths.sort();
 
-    QVector<FileEntry> result;
+    QVector<File> result;
     result.reserve(paths.size());
     for (const QString &path : std::as_const(paths))
-        result.push_back(FileEntry::fromInfo(QFileInfo(path)));
+        result.push_back(File::fromInfo(QFileInfo(path)));
     return result;
 }
 
